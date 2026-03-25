@@ -1,0 +1,20 @@
+{
+    "name": "Services",
+    "rootNamespace": "Services",
+    "references": [
+        "AppConfiguration",
+        "CommonComponents",
+        "ServicesFacade",
+        "UniRx",
+        "Zenject"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

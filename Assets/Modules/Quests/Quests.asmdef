@@ -1,0 +1,21 @@
+{
+    "name": "Quests",
+    "rootNamespace": "",
+    "references": [
+        "Zenject",
+        "CommonComponents",
+        "Database",
+        "Localization",
+        "Diagnostics",
+        "Utilites"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

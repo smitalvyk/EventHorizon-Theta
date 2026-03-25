@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<data type="enum" name="SkillType">
+    <item name="Undefined" value="0" />
+    <item name="ShipAttack" value="1" />
+    <item name="ShipDefense" value="2" />
+    <item name="StarbaseAttack" value="3" />
+    <item name="StarbaseDefense" value="4" />
+    <item name="QuickLearning" value="5" />
+    <item name="BetterPrices" value="6" />
+    <item name="BetterLoot" value="7" />
+    <item name="CommandPoints" value="8" />
+    <item name="SalvageDrones" value="9" />
+    <item name="Engineer" value="10" />
+</data>

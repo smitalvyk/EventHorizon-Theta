@@ -1,0 +1,21 @@
+{
+    "name": "GameServices",
+    "rootNamespace": "",
+    "references": [
+        "Zenject",
+        "ResourceLocator",
+        "CommonComponents",
+        "UniRx",
+        "Unity.InputSystem",
+        "ServicesFacade"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

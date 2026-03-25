@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<data type="enum" name="ShipType">
+    <item name="Common" value="0" />
+    <item name="Drone" value="1" />
+    <item name="Starbase" value="2" />
+    <item name="Special" value="3" />
+    <item name="Flagship" value="4" />
+</data>

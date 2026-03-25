@@ -1,0 +1,19 @@
+{
+    "name": "ResourceLocator",
+    "rootNamespace": "",
+    "references": [
+        "CommonComponents",
+        "Database",
+        "Zenject",
+        "ServicesFacade"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

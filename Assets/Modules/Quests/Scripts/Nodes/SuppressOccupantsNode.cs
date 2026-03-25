@@ -1,0 +1,22 @@
+﻿using GameDatabase.Enums;
+
+namespace Domain.Quests
+{
+    public class SuppressOccupantNode : ActionNode
+    {
+        public SuppressOccupantNode(int id, int starId, bool destroy) 
+            : base(id, destroy ? NodeType.DestroyOccupants : NodeType.SuppressOccupants)
+        {
+            _starId = starId;
+            _destroy = destroy;
+        }
+
+        protected override void InvokeAction(IQuestActionProcessor processor)
+        {
+            processor.SuppressOccupants(_starId, _destroy);
+        }
+
+        private readonly int _starId;
+        private readonly bool _destroy;
+    }
+}

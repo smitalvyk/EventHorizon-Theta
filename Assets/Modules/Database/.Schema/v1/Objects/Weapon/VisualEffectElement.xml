@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<data name="VisualEffectElement" type="struct" >
+    <member name="Type" type="enum" typeid="VisualEffectType" />
+    <member name="Image" type="image" typeid="Effect" />
+    <member name="ColorMode" type="enum" typeid="ColorMode" />
+    <member name="Color" type="color" />
+    <member name="Quantity" type="int" minvalue="1" maxvalue="100" default="1" />
+    <member name="Size" type="float" minvalue="0.001" maxvalue="100" default="1" />
+    <member name="GrowthRate" type="float" minvalue="-1" maxvalue="100" />
+    <member name="TurnRate" type="float" minvalue="-1000" maxvalue="1000" />
+    <member name="StartTime" type="float" minvalue="0" maxvalue="1000" />
+    <member name="Lifetime" type="float" minvalue="0" maxvalue="1000" default="1" />
+    <member name="ParticleSize" type="float" minvalue="0.001" maxvalue="100" default="1" />
+    <member name="Offset" type="vector" />
+    <member name="Rotation" type="float" minvalue="0" maxvalue="360" />
+    <member name="Loop" type="bool" />
+    <member name="Inverse" type="bool" />
+    <member name="UseRealTime" type="bool" />
+</data>

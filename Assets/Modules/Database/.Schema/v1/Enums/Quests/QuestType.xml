@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<data type="enum" name="QuestType">
+    <item name="Common" value="0" />
+    <item name="Singleton" value="1" />
+    <item name="Storyline" value="2" />
+    <item name="Temporary" value="3" />
+    <item name="Urgent" value="4" />
+</data>

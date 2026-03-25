@@ -1,0 +1,21 @@
+{
+    "name": "Database",
+    "rootNamespace": "GameDatabase",
+    "references": [
+        "Security",
+        "SecurityStub",
+        "CommonComponents",
+        "CodeWriter.ExpressionParser",
+        "Diagnostics",
+        "NVorbis"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

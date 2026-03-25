@@ -1,0 +1,21 @@
+{
+    "name": "GameSession",
+    "rootNamespace": "",
+    "references": [
+        "Diagnostics",
+        "Zenject",
+        "CommonComponents",
+        "Database",
+        "ShipConstructor",
+        "Utilites"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<data type="enum" name="BehaviorNodeType">
+    <item name="Success" value="0">Always returs SUCCESS</item>
+    <item name="Failure" value="9">Always returs FAILURE</item>
+    <item name="SubTree" value="1" />
+    <item name="Selector" value="2">Executes nodes sequentially, stops when the first node returns SUCCESS or RUNNING</item>
+    <item name="Sequence" value="3">Executes nodes sequentially, stops when the first node returns FAILURE or RUNNING</item>
+    <item name="Parallel" value="4">Executes nodes in parallel. Returns SUCCESS if at least one succeeds, RUNNING if any still running, and FAILURE if all fail</item>
+    <item name="RandomSelector" value="5">Executes random node, selects another after 'Cooldown' sec</item>
+    <item name="Invertor" value="6">Executes node, swaps SUCCESS and FAILURE</item>
+    <item name="Cooldown" value="7">Executes node until condition met, then waits a specific amount of time, returning 'Result', repeats</item>
+    <item name="Execute" value="8">Executes node until condition met, returns 'Result' after that</item>
+    <item name="ParallelSequence" value="10">Executes nodes sequentially, stops when the first node returns FAILURE</item>
+    <item name="PreserveTarget" value="11">Memorizes the primary target, runs the child node, then restores the original target. Returns the result of the node's execution</item>
+    <item name="IfThenElse" value="12">If the first node returns SUCCESS, executes the second node, executes the thirid node otherwise</item>
+
+    <item name="HasEnoughEnergy" value="50" />
+    <item name="IsLowOnHp" value="51" />
+    <item name="IsNotControledByPlayer" value="52">Returns FAILURE if the time since the last player action is under the Cooldown, SUCCESS otherwise</item>
+    <item name="HasIncomingThreat" value="53">Requires threat list. Returns SUCCESS if time to collision less than value</item>
+    <item name="HasAdditionalTargets" value="54">Returns SUCCESS if has any targets found by LookForAdditionalTargets node</item>
+
+    <item name="IsFasterThanTarget" value="55">Returns SUCCESS if [engine power] > Multiplier * [target engine power]</item>
+    <item name="HasMainTarget" value="56">Returns SUCCESS if the main is selected and alive</item>
+    <item name="MainTargetIsAlly" value="57" />
+    <item name="MainTargetIsEnemy" value="58" />
+    <item name="MainTargetLowHp" value="59" />
+    <item name="MainTargetWithinAttackRange" value="60" />
+    <item name="HasMothership" value="61">Returns SUCCESS if mothership exists and is alive</item>
+    <item name="TargetDistance" value="62">Returns SUCCESS if the distance to the target does not exceed the MaxDistance</item>
+    <item name="HasLongerAttackRange" value="63">Returns SUCCESS if the attack range of any weapon surpasses [enemy attack range] * Multiplier</item>
+
+    <item name="FindEnemy" value="100">Looks for nearest enemy. Changes target every MaxCooldown sec if it's defined. SUCCESS if found, FAILURE otherwise</item>
+    <item name="MoveToAttackRange" value="101">Moves towards target until inside attack radius. Requires main target. Uses attack range of selected weapons. SUCCESS if inside attack range, FAILURE if any error, RUNNING otherwise</item>
+    <item name="AttackMainTarget" value="102">Attacks main target with selected weapons, returning SUCCESS upon firing, RUNNING while aiming, and FAILURE for any inability to initiate the attack</item>
+    <item name="SelectWeapon" value="103">Returns SUCCESS if any weapon found, FAILURE otherwise. If no weapon selected all weapons will be used</item>
+    <item name="SpawnDrones" value="104">Spawns drones and clones. Returns RUNNING until there are no more drones left to spawn, then returns SUCCESS if any drones active, FAILURE otherwise</item>
+    <item name="Ram" value="105">Tries to ram the target, can use Afterburner and Fortification. Returns FAILURE if there is no target or it's moving too fast, RUNNING otherwise</item>
+    <item name="DetonateShip" value="106" />
+    <item name="Vanish" value="107">Makes ship disappear completely, without a trace</item>
+    <item name="MaintainAttackRange" value="108">Keeps ship at required distance. Requires main target. Uses attack range of selected weapons. SUCCESS if inside valid range, FAILURE if any error, RUNNING otherwise</item>
+    <item name="Wait" value="109" />
+    <item name="LookAtTarget" value="110" />
+    <item name="LookForAdditionalTargets" value="111">Updates the list of enemies other than the main target. Returns SUCCESS if any found, FAILURE otherwise</item>
+    <item name="LookForThreats" value="112">Updates threat list. Returns SUCCESS if any found, FAILURE otherwise</item>
+    <item name="MatchVelocityWithTarget" value="113">Aligns ship's movement speed and direction to the target's. Returns SUCCESS on reaching, FAILURE on errors, and RUNNING otherwise</item>
+    <item name="ActivateDevice" value="114">Activates device. Returns SUCCESS if activated, FAILURE otherwise</item>
+    <item name="RechargeEnergy" value="115">If energy level drops below FailIfLess, enters recharging state and returns FAILURE until energy level reaches RestoreUntil, otherwise returns SUCCESS</item>
+    <item name="SustainAim" value="116">If any directional weapon active, maintain focus on target and returns RUNNING. Returns FAILURE otherwise</item>
+    <item name="ChargeWeapons" value="117">Charges all weapons that require charging, reserves energy needed to fully charge. Returns FAILURE if not possible, SUCCESS if fully charged, RUNNING otherwise</item>
+    <item name="Chase" value="118">Follows the target. Returns FAILURE if there is no target, RUNNING otherwise</item>
+    <item name="AvoidThreats" value="119">Changes the ship's trajectory to avoid collision. Requires threat list. Returns SUCCESS if there are no threats, RUNNING otherwise</item>
+    <item name="SlowDown" value="120">Reduces ship's speed. Returns SUCCESS if it completely stopped, RUNNING otherwise</item>
+    <item name="UseRecoil" value="121">Activates weapons with high recoil to get impulse. Returns FAILURE if doesn't have such weapons, RUNNING otherwise</item>
+    <item name="DefendWithFronalShield" value="122">Turns ship towards threats and activates shield. Returns FAILURE if there are no shields or threats, RUNNING otherwise</item>
+    <item name="TrackControllableAmmo" value="123">Tracks controllable bullets. Detonates them if near the target. Returns FAILURE if there are no bullets left. RUNNING otherwise</item>
+    <item name="KeepDistance" value="124">Keeps ship within a specified distance from main target. Returns SUCCESS if inside valid range, FAILURE if any error, RUNNING otherwise</item>
+    <item name="ForgetMainTarget" value="125">Removes main target. Returns SUCCESS</item>
+    <item name="EscapeTargetAttackRadius" value="126">Flies away from target until outside its attack radius. Returns SUCCESS when safe, RUNNING otherwise</item>
+    <item name="AttackAdditionalTargets" value="127">Attacks additional targets with selected weapons, returning SUCCESS upon firing, RUNNING while aiming, and FAILURE for any inability to initiate the attack</item>
+    <item name="TargetAllyStarbase" value="128">Targets an ally starbase. Returns SUCCESS if it exists and alive, otherwise FAILURE</item>
+    <item name="TargetEnemyStarbase" value="129">Targets an enemy starbase. Returns SUCCESS if it exists and alive, otherwise FAILURE</item>
+    <item name="BypassObstacles" value="130">Tries to bypass obstacle if any. Returns FAILURE if there are no obstacles, RUNNING otherwise</item>
+    <item name="AttackTurretTargets" value="131">Attacks targets that tracked by auto-aiming turrets, returning SUCCESS upon firing, FAILURE otherwise</item>
+    <item name="HoldHarpoon" value="132">Keeps harpoon active upon hitting the enemy. Returns SUCCESS if it remains attached to the enemy, returns FAILURE otherwise</item>
+    <item name="FindDamagedAlly" value="133">Looks for nearest damaged ally. Changes target every MaxCooldown sec if it's defined. SUCCESS if found, FAILURE otherwise</item>
+
+    <item name="EnginePropulsionForce" value="150">Returns SUCCESS when [forward acceleration]/[max acceleration] > MinValue</item>
+
+    <item name="MotherShipRetreated" value="200" />
+    <item name="MotherShipDestroyed" value="201" />
+    <item name="FlyAroundMothership" value="202" />
+    <item name="GoBerserk" value="203">Detaches drone from the mothership. Starts treating all ships as enemies. Returns SUCCESS once activated, FAILURE after that</item>
+    <item name="TargetMothership" value="204">Sets the mothership as a main target. Returns FAILURE if it's absent, otherwise SUCCESS</item>
+    <item name="MothershipLowHp" value="205" />
+    <item name="MothershipDistanceExceeded" value="206">Returns SUCCESS if ship is too far from the mothership</item>
+    <item name="MakeTargetMothership" value="207">Makes primary target a new mothership. Returns FAILURE if target is absent or already a mothership, otherwise SUCCESS</item>
+    <item name="MothershipLowEnergy" value="208" />
+    <item name="MothershipLowShield" value="209" />
+
+    <item name="ShowMessage" value="300">Spawns text over the ship sprite that disappears shortly. Retruns SUCCESS if spawned, RUNNING if on cooldown</item>
+    <item name="DebugLog" value="301">Writes message to the log file (https://docs.unity3d.com/Manual/LogFiles.html). Retruns SUCCESS</item>
+    <item name="SetValue" value="302">Sets a boolean variable for this ship. Returns SUCCESS if the variable's value changes, and FAILURE if the value remains unchanged</item>
+    <item name="GetValue" value="303">Verifies the state of the variable. Returns SUCCESS if the variable is set, and FAILURE if not set or undefined</item>
+    <item name="SendMessage" value="304">Sends a message to all allies, returning SUCCESS if any ally receives it</item>
+    <item name="MessageReceived" value="305">Monitors the radio, waiting for a specific message. Remembers message sender. If received returns SUCCESS, otherwise FAILURE</item>
+    <item name="TargetMessageSender" value="306">Targets the sender of the last received message. Returns SUCCESS if it's still alive, otherwise FAILURE</item>
+    <item name="SaveTarget" value="307">Saves the main target for this ship. It returns SUCCESS if the target is successfully updated, and FAILURE if the new target is identical to the previously saved target</item>
+    <item name="LoadTarget" value="308">Loads saved target. Returns SUCCESS if it exists and alive, otherwise FAILURE</item>
+    <item name="HasSavedTarget" value="309">Returns SUCCESS if specific target exists and still alive</item>
+    <item name="ForgetSavedTarget" value="310">Removes saved target. Returns SUCCESS</item>
+</data>

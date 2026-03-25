@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<data type="enum" name="SizeClass">
+    <item name="Undefined" value="-1" />
+    <item name="Frigate" value="0" />
+    <item name="Destroyer" value="1" />
+    <item name="Cruiser" value="2" />
+    <item name="Battleship" value="3" />
+    <item name="Titan" value="4" />
+    <item name="Starbase" value="5" />
+</data>

@@ -1,0 +1,26 @@
+{
+    "name": "BattleSimulator",
+    "rootNamespace": "",
+    "references": [
+        "Zenject",
+        "Database",
+        "CommonComponents",
+        "ResourceLocator",
+        "ShipConstructor",
+        "Unity.InputSystem",
+        "ServicesFacade",
+        "GameServices",
+        "Diagnostics",
+        "Localization",
+        "Utilites"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

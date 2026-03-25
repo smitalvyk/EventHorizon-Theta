@@ -1,0 +1,131 @@
+//-------------------------------------------------------------------------------
+//                                                                               
+//    This code was automatically generated.                                     
+//    Changes to this file may cause incorrect behavior and will be lost if      
+//    the code is regenerated.                                                   
+//                                                                               
+//-------------------------------------------------------------------------------
+
+using System.Collections.Generic;
+using Session.Utils;
+
+namespace Session.Model
+{
+	public readonly partial struct ShipInfo
+	{
+		private readonly int _id;
+		private readonly string _name;
+		private readonly long _colorScheme;
+		private readonly ObscuredLong _experience;
+		private readonly ObservableList<Model.ShipComponentInfo> _components;
+		private readonly ObservableList<byte> _layoutModifications;
+		private readonly ObservableList<long> _modifications;
+		private readonly Model.SatelliteInfo _satellite1;
+		private readonly Model.SatelliteInfo _satellite2;
+
+		public ShipInfo(IDataChangedCallback parent)
+		{
+			_id = default(int);
+			_name = string.Empty;
+			_colorScheme = default(long);
+			_experience = default(long);
+			_components = new ObservableList<Model.ShipComponentInfo>(parent);
+			_layoutModifications = new ObservableList<byte>(parent);
+			_modifications = new ObservableList<long>(parent);
+			_satellite1 = new Model.SatelliteInfo(parent);
+			_satellite2 = new Model.SatelliteInfo(parent);
+		}
+
+		public ShipInfo(SessionDataReader reader, IDataChangedCallback parent)
+		{
+			_id = reader.ReadInt(EncodingType.EliasGamma);
+			_name = reader.ReadString(EncodingType.EliasGamma);
+			_colorScheme = reader.ReadLong(EncodingType.EliasGamma);
+			_experience = reader.ReadLong(EncodingType.EliasGamma);
+			int componentsItemCount;
+			componentsItemCount = reader.ReadInt(EncodingType.EliasGamma);
+			_components = new ObservableList<Model.ShipComponentInfo>(componentsItemCount, parent);
+			for (int i = 0; i < componentsItemCount; ++i)
+			{
+				Model.ShipComponentInfo item;
+				item = new Model.ShipComponentInfo(reader, parent);
+				_components.Add(item);
+			}
+			int layoutModificationsItemCount;
+			layoutModificationsItemCount = reader.ReadInt(EncodingType.EliasGamma);
+			_layoutModifications = new ObservableList<byte>(layoutModificationsItemCount, parent);
+			for (int i = 0; i < layoutModificationsItemCount; ++i)
+			{
+				byte item;
+				item = reader.ReadByte(EncodingType.EliasGamma);
+				_layoutModifications.Add(item);
+			}
+			int modificationsItemCount;
+			modificationsItemCount = reader.ReadInt(EncodingType.EliasGamma);
+			_modifications = new ObservableList<long>(modificationsItemCount, parent);
+			for (int i = 0; i < modificationsItemCount; ++i)
+			{
+				long item;
+				item = reader.ReadLong(EncodingType.EliasGamma);
+				_modifications.Add(item);
+			}
+			_satellite1 = new Model.SatelliteInfo(reader, parent);
+			_satellite2 = new Model.SatelliteInfo(reader, parent);
+		}
+
+		public int Id => _id;
+		public string Name => _name;
+		public long ColorScheme => _colorScheme;
+		public long Experience => _experience;
+		public ObservableList<Model.ShipComponentInfo> Components => _components;
+		public ObservableList<byte> LayoutModifications => _layoutModifications;
+		public ObservableList<long> Modifications => _modifications;
+		public Model.SatelliteInfo Satellite1 => _satellite1;
+		public Model.SatelliteInfo Satellite2 => _satellite2;
+
+        public void Serialize(SessionDataWriter writer)
+        {
+			writer.WriteInt(_id, EncodingType.EliasGamma);
+			writer.WriteString(_name, EncodingType.EliasGamma);
+			writer.WriteLong(_colorScheme, EncodingType.EliasGamma);
+			writer.WriteLong(_experience, EncodingType.EliasGamma);
+			writer.WriteInt(_components.Count, EncodingType.EliasGamma);
+			for (int i = 0; i < _components.Count; ++i)
+			{
+				_components[i].Serialize(writer);
+			}
+			writer.WriteInt(_layoutModifications.Count, EncodingType.EliasGamma);
+			for (int i = 0; i < _layoutModifications.Count; ++i)
+			{
+				writer.WriteByte(_layoutModifications[i], EncodingType.EliasGamma);
+			}
+			writer.WriteInt(_modifications.Count, EncodingType.EliasGamma);
+			for (int i = 0; i < _modifications.Count; ++i)
+			{
+				writer.WriteLong(_modifications[i], EncodingType.EliasGamma);
+			}
+			_satellite1.Serialize(writer);
+			_satellite2.Serialize(writer);
+        }
+
+        public bool Equals(ShipInfo other)
+        {
+			if (Id != other.Id) return false;
+			if (Name != other.Name) return false;
+			if (ColorScheme != other.ColorScheme) return false;
+			if (Experience != other.Experience) return false;
+			if (!Components.Equals(other.Components, new Model.ShipComponentInfo.EqualityComparer())) return false;
+			if (!LayoutModifications.Equals(other.LayoutModifications, EqualityComparer<byte>.Default)) return false;
+			if (!Modifications.Equals(other.Modifications, EqualityComparer<long>.Default)) return false;
+			if (!Satellite1.Equals(other.Satellite1)) return false;
+			if (!Satellite2.Equals(other.Satellite2)) return false;
+            return true;
+        }
+
+        public struct EqualityComparer : IEqualityComparer<ShipInfo>
+        {
+            public bool Equals(ShipInfo first, ShipInfo second) => first.Equals(second);
+            public int GetHashCode(ShipInfo obj) => obj.GetHashCode();
+        }
+	}
+}

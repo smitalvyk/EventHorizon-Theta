@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<data type="enum" name="NodeType">
+    <item name="Undefined" value="0" />
+    <item name="ComingSoon" value="1" />
+    
+    <item name="ShowDialog" value="10" />
+    <item name="OpenShipyard" value="11" />
+    <item name="OpenWorkshop" value="12" />
+    
+    <item name="Switch" value="15" />
+    <item name="Random" value="16" />
+    <item name="Condition" value="17" />
+    
+    <item name="AttackFleet" value="20" />
+    <item name="AttackOccupants" value="21" />
+    <item name="AttackStarbase" value="22" />
+    
+    <item name="DestroyOccupants" value="25" />
+    <item name="SuppressOccupants" value="26" />
+    
+    <item name="Retreat" value="30" />
+
+    <item name="ReceiveItem" value="35" />
+    <item name="RemoveItem" value="36" />
+    <item name="Trade" value="37" />
+
+    <item name="CompleteQuest" value="40" />
+    <item name="FailQuest" value="41" />
+    <item name="CancelQuest" value="42" />
+    <item name="StartQuest" value="43" />
+
+    <item name="SetCharacterRelations" value="50" />
+    <item name="SetFactionRelations" value="51" />
+    <item name="SetFactionStarbasePower" value="52" />
+    <item name="ChangeCharacterRelations" value="55" />
+    <item name="ChangeFactionRelations" value="56" />
+    <item name="ChangeFactionStarbasePower" value="57" />
+
+    <item name="CaptureStarBase" value="60" />
+    <item name="LiberateStarBase" value="61" />
+    <item name="ChangeFaction" value="62" />
+</data>

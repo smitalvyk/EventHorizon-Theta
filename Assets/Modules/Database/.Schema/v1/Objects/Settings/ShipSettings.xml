@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<data name="ShipSettings" type="settings" typeid="ShipSettings">
+    <member name="DefaultWeightPerCell" type="float" minvalue="1" maxvalue="1000000" />
+    <member name="MinimumWeightPerCell" type="float" minvalue="1" maxvalue="1000000" />
+    <member name="BaseArmorPoints" type="float" minvalue="0" maxvalue="1000000" />
+    <member name="ArmorPointsPerCell" type="float" minvalue="0" maxvalue="1000000" />
+    <member name="ArmorRepairCooldown" type="float" minvalue="0" maxvalue="60" />
+    <member name="BaseEnergyPoints" type="float" minvalue="0" maxvalue="1000000" />
+    <member name="BaseEnergyRechargeRate" type="float" minvalue="0" maxvalue="1000000" />
+    <member name="EnergyRechargeCooldown" type="float" minvalue="0" maxvalue="60" />
+    <member name="BaseShieldRechargeRate" type="float" minvalue="0" maxvalue="1000000" />
+    <member name="ShieldRechargeCooldown" type="float" minvalue="0" maxvalue="60" />
+    <member name="BaseDroneReconstructionSpeed" type="float" minvalue="0" maxvalue="100" />
+    <member name="ShieldCorrosiveResistance" type="float" minvalue="0" maxvalue="1" default="0.9" />
+    <member name="MaxVelocity" type="float" minvalue="5" maxvalue="100" default="30" />
+    <member name="MaxAngularVelocity" type="float" minvalue="5" maxvalue="100" default="30" />
+    <member name="MaxAcceleration" type="float" minvalue="5" maxvalue="1000" default="300" />
+    <member name="MaxAngularAcceleration" type="float" minvalue="5" maxvalue="1000" default="300" />
+    <member name="DisableCellsExpansions" type="bool" />
+    <member name="ShipExplosionEffect" type="object" typeid="VisualEffect" />
+    <member name="ShipExplosionSound" type="audioclip" />
+    <member name="DroneExplosionEffect" type="object" typeid="VisualEffect" />
+    <member name="DroneExplosionSound" type="audioclip" />
+</data>

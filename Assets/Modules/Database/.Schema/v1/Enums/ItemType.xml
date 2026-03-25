@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<data type="enum" name="ItemType">
+    <item name="Undefined" value="0" />
+    <item name="Component" value="1" />
+    <item name="Device" value="2" />
+    <item name="Weapon" value="3" />
+    <item name="AmmunitionObsolete" value="4" />
+    <item name="DroneBay" value="5" />
+    <item name="Ship" value="6" />
+    <item name="Satellite" value="7" />
+    <item name="ShipBuild" value="8" />
+    <item name="SatelliteBuild" value="9" />
+    <item name="Technology" value="10" />
+    <item name="ComponentStats" value="11" />
+    <item name="ComponentMod" value="12" />
+    <item name="Skill" value="13" />
+    <item name="Faction" value="14" />
+    <item name="Quest" value="15" />
+    <item name="Loot" value="16" />
+    <item name="Fleet" value="18" />
+    <item name="Character" value="19" />
+    <item name="QuestItem" value="20" />
+    <item name="Ammunition" value="25" />
+    <item name="VisualEffect" value="26" />
+    <item name="BulletPrefab" value="27" />
+    <item name="BehaviorTree" value="28" />
+    <item name="GameObjectPrefab" value="29" />
+    <item name="CombatRules" value="30" />
+    <item name="ComponentStatUpgrade" value="31" />
+    <item name="StatUpgradeTemplate" value="32" />
+    <item name="FrontierLevel" value="33" />
+    <item name="FrontierCommonLevel" value="34" />
+    <item name="ComponentGroupTag" value="35" />
+
+    <item name="ShipSettings" value="100" />
+    <item name="GalaxySettings" value="101" />
+    <item name="DatabaseSettings" value="102" />
+    <item name="ExplorationSettings" value="103" />
+    <item name="FrontierSettings" value="104" />
+    <item name="ShipModSettings" value="105" />
+    <item name="SpecialEventSettings"  value="106" />
+    <item name="SkillSettings" value="107" />
+    <item name="DebugSettings" value="108" />
+    <item name="CombatSettings" value="109" />
+    <item name="UiSettings" value="110" />
+    <item name="FactionsSettings" value="111" />
+    <item name="MusicPlaylist" value="112" />
+    <item name="ResearchSetting" value="113" />
+    <item name="PvpSettings" value="114" />
+    <item name="FrontierNpcSettings" value="115" />
+    <item name="FrontierLevelSettings" value="116" />
+    <item name="LocalizationSettings" value="117" />
+    <item name="WeaponSlots" value="118" />
+</data>
