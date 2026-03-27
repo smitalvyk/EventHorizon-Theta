@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<data name="CellSettings" type="settings" typeid="CellSettings">
+    <member name="Cells" type="struct_list" typeid="CellData" />
+</data>

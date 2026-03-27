@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<data name="CellData" type="struct">
+	<member name="Symbol" type="string" />
+	<member name="Color" type="color" />
+	<member name="Image" type="string" />
+	<member name="EnableCustomShapeHighlight" type="bool" default="false" />
+	<member name="MergeCells" type="bool" default="false" />
+</data>

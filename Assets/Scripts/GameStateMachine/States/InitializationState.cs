@@ -1,22 +1,23 @@
-﻿using System.Linq;
-using System.Collections.Generic;
-using GameServices.SceneManager;
-using Constructor;
+﻿using Constructor;
+using Constructor.Model;
 using Constructor.Ships;
 using GameDatabase;
 using GameDatabase.DataModel;
 using GameDatabase.Enums;
+using GameServices.Audio;
+using GameServices.SceneManager;
 using GameServices.Settings;
 using Services.Account;
-using UnityEngine;
-using Session;
 using Services.Advertisements;
-using Services.Storage;
-using Services.Localization;
-using Zenject;
 using Services.Audio;
-using GameServices.Audio;
-using Constructor.Model;
+using Services.Localization;
+using Services.Settings;
+using Services.Storage;
+using Session;
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+using Zenject;
 
 namespace GameStateMachine.States
 {
@@ -59,7 +60,7 @@ namespace GameStateMachine.States
 #if UNITY_STANDALONE
             Application.runInBackground = _settings.RunInBackground;
 #endif
-            QualitySettings.SetQualityLevel(_settings.QualityMode < 0 ? 0 : 1);
+            QualitySettings.SetQualityLevel(_settings.QualityMode < 0 ? 0 : (_settings.QualityMode > 0 ? 5 : 2));
 
             Debug.Log (SystemInfo.operatingSystem);
             Debug.Log (SystemInfo.deviceModel);

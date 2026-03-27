@@ -61,7 +61,7 @@ namespace Gui.MainMenu
         public void SetGraphicQuality(int quality)
         {
             _gameSettings.QualityMode = quality;
-            QualitySettings.SetQualityLevel(quality < 0 ? 0 : 1);
+            QualitySettings.SetQualityLevel(quality < 0 ? 0 : (quality > 0 ? 5 : 2));
         }
 
         public void RunInBackground(bool enabled)

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<data name="CustomCategorySettings" type="settings" typeid="CustomCategorySettings">
+    <member name="Categories" type="struct_list" typeid="CustomCategoryData" />
+</data>

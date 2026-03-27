@@ -9,6 +9,8 @@ Material:
   m_PrefabAsset: {fileID: 0}
   m_Name: MapBackground
   m_Shader: {fileID: 4800000, guid: 7a2081cd6f4503940b71c9c1fba56529, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
   m_InvalidKeywords:
   - ETC1_EXTERNAL_ALPHA
@@ -18,6 +20,7 @@ Material:
   m_CustomRenderQueue: -1
   stringTagMap: {}
   disabledShaderPasses: []
+  m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
@@ -27,8 +30,8 @@ Material:
         m_Offset: {x: 0, y: 0}
     - _DecalTex:
         m_Texture: {fileID: 2800000, guid: 9e4a244b0ce0d344f9b834b4dd59082a, type: 3}
-        m_Scale: {x: 12.687752, y: 12.687752}
-        m_Offset: {x: -0.5403558, y: -0.5425085}
+        m_Scale: {x: 8.103283, y: 8.103283}
+        m_Offset: {x: -0.75972486, y: -0.45506206}
     - _Detail:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
@@ -51,8 +54,8 @@ Material:
         m_Offset: {x: 0, y: 0}
     - _MainTex:
         m_Texture: {fileID: 2800000, guid: 9399c5eac7b26be489a259f4dd49550b, type: 3}
-        m_Scale: {x: 3.171938, y: 3.171938}
-        m_Offset: {x: -0.38508895, y: -0.13562712}
+        m_Scale: {x: 2.0258207, y: 2.0258207}
+        m_Offset: {x: -0.18993121, y: -0.113765515}
     - _MetallicGlossMap:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
