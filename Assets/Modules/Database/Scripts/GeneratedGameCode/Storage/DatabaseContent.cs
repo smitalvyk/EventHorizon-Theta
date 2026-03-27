@@ -384,6 +384,19 @@ namespace GameDatabase.Storage
                 if (!_allowDuplicates)
                     throw new DatabaseException("Duplicate Weapon ID - " + item.Id + " (" + name + ")");
             }
+            else if (type == ItemType.CellSettings)
+            {
+                if (CellSettings == null)
+                {
+                    var data = _serializer.FromJson<CellSettingsSerializable>(content);
+                    data.FileName = name;
+                    CellSettings = data;
+                    return;
+                }
+
+				if (!_allowDuplicates)
+                    throw new DatabaseException("Duplicate CellSettings file found - " + name);
+            }
             else if (type == ItemType.CombatSettings)
             {
                 if (CombatSettings == null)
@@ -396,6 +409,19 @@ namespace GameDatabase.Storage
 
 				if (!_allowDuplicates)
                     throw new DatabaseException("Duplicate CombatSettings file found - " + name);
+            }
+            else if (type == ItemType.CustomCategorySettings)
+            {
+                if (CustomCategorySettings == null)
+                {
+                    var data = _serializer.FromJson<CustomCategorySettingsSerializable>(content);
+                    data.FileName = name;
+                    CustomCategorySettings = data;
+                    return;
+                }
+
+				if (!_allowDuplicates)
+                    throw new DatabaseException("Duplicate CustomCategorySettings file found - " + name);
             }
             else if (type == ItemType.DatabaseSettings)
             {
@@ -587,7 +613,9 @@ namespace GameDatabase.Storage
             _audioClips.Add(name, audioClip);
         }
 
+		public CellSettingsSerializable CellSettings { get; private set; }
 		public CombatSettingsSerializable CombatSettings { get; private set; }
+		public CustomCategorySettingsSerializable CustomCategorySettings { get; private set; }
 		public DatabaseSettingsSerializable DatabaseSettings { get; private set; }
 		public DebugSettingsSerializable DebugSettings { get; private set; }
 		public ExplorationSettingsSerializable ExplorationSettings { get; private set; }

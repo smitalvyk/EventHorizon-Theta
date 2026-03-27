@@ -31,8 +31,20 @@ namespace Gui.ShipService
 
         [SerializeField] public BlockSelectedEvent _onBlockSelected = new BlockSelectedEvent();
 
+        [Inject] private readonly GameDatabase.IDatabase _database;
+
         [Serializable]
-        public class BlockSelectedEvent : UnityEvent<int,int> { };
+        public struct CustomSpriteBinding
+        {
+            public string ImageName;
+            public Sprite Sprite;
+        }
+
+        [Header("Custom Sprites")]
+        public List<CustomSpriteBinding> CustomSprites = new List<CustomSpriteBinding>();
+
+        [Serializable]
+        public class BlockSelectedEvent : UnityEvent<int, int> { };
 
         public void Reset()
         {
@@ -95,8 +107,8 @@ namespace Gui.ShipService
             layoutElement.minWidth = areaSize;
             layoutElement.minHeight = areaSize;
 
-            _width = areaSize;//RectTransform.rect.width;
-            _height = areaSize;//RectTransform.rect.height;
+            _width = areaSize;
+            _height = areaSize;
 
             _blocks.Clear();
 
@@ -114,28 +126,78 @@ namespace Gui.ShipService
             }
         }
 
-        private BlockViewModel CreateBlock(/*ShipLayout.LayoutElement cell*/CellType cell)
+        private BlockViewModel CreateBlock(CellType cell)
         {
-			switch (cell)
-            {
-                case CellType.Outer:
-                    return GameObject.Instantiate<BlockViewModel>(OuterBlock);
-                case CellType.Inner:
-                    return GameObject.Instantiate<BlockViewModel>(InnerBlock);
-                case CellType.InnerOuter:
-                    return GameObject.Instantiate<BlockViewModel>(IoBlock);
-				case CellType.Weapon:
-				case Layout.CustomWeaponCell:
-					var item = GameObject.Instantiate<BlockViewModel>(WeaponBlock);
-					//item.Label.text = string.IsNullOrEmpty(cell.WeaponClass) ? "•" : cell.WeaponClass;
-					return item;
-				case CellType.Engine:
-                    return GameObject.Instantiate<BlockViewModel>(EngineBlock);
-				case Layout.CustomizableCell:
-					return GameObject.Instantiate<BlockViewModel>(CustomBlock);
-			}
+            int cellId = (int)cell;
 
-			return null;
+            switch (cell)
+            {
+                case CellType.Outer: return GameObject.Instantiate<BlockViewModel>(OuterBlock);
+                case CellType.Inner: return GameObject.Instantiate<BlockViewModel>(InnerBlock);
+                case CellType.InnerOuter: return GameObject.Instantiate<BlockViewModel>(IoBlock);
+                case CellType.Weapon:
+                case Layout.CustomWeaponCell:
+                    return GameObject.Instantiate<BlockViewModel>(WeaponBlock);
+                case CellType.Engine: return GameObject.Instantiate<BlockViewModel>(EngineBlock);
+                case Layout.CustomizableCell: return GameObject.Instantiate<BlockViewModel>(CustomBlock);
+            }
+
+            // Catch internal exceptions from empty ImmutableCollections
+            try
+            {
+                if (_database != null && _database.CellSettings != null)
+                {
+                    foreach (var c in _database.CellSettings.Cells)
+                    {
+                        // Box to object for safe struct null checking
+                        if ((object)c != null && !string.IsNullOrEmpty(c.Symbol) && c.Symbol[0] == cellId)
+                        {
+                            var customItem = GameObject.Instantiate<BlockViewModel>(InnerBlock);
+                            var image = customItem.GetComponent<UnityEngine.UI.Image>();
+
+                            if (image != null)
+                            {
+                                image.color = c.Color;
+
+                                if (!string.IsNullOrEmpty(c.Image))
+                                {
+                                    Sprite foundSprite = null;
+
+                                    var binding = CustomSprites.Find(x => x.ImageName == c.Image);
+                                    if (binding.ImageName != null && binding.Sprite != null)
+                                    {
+                                        foundSprite = binding.Sprite;
+                                    }
+                                    else
+                                    {
+                                        foundSprite = Resources.Load<Sprite>(c.Image);
+                                        if (foundSprite == null && _resourceLocator != null)
+                                        {
+                                            foundSprite = _resourceLocator.GetSprite(c.Image);
+                                        }
+                                    }
+
+                                    if (foundSprite != null)
+                                    {
+                                        image.sprite = foundSprite;
+
+                                        // Disable slicing and preserve original sprite aspect ratio
+                                        image.type = Image.Type.Simple;
+                                        image.preserveAspect = true;
+                                    }
+                                }
+                            }
+                            return customItem;
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore internal ImmutableCollection exceptions. Fallback to null (empty cell).
+            }
+
+            return null;
         }
 
         private void SetBlockLayout(RectTransform item, int x, int y, int size)
@@ -152,19 +214,10 @@ namespace Gui.ShipService
         {
             foreach (Transform child in transform)
             {
-                if (child == WeaponBlock.transform ||
-                    child == InnerBlock.transform ||
-                    child == OuterBlock.transform ||
-                    child == EngineBlock.transform ||
-                    child == IoBlock.transform ||
-                    child == CustomBlock.transform ||
-                    child == Selection.transform ||
-                    child == BackgroundImage.transform)
+                if (child == WeaponBlock.transform || child == InnerBlock.transform || child == OuterBlock.transform || child == EngineBlock.transform || child == IoBlock.transform || child == CustomBlock.transform || child == Selection.transform || child == BackgroundImage.transform)
                     continue;
-
                 GameObject.Destroy(child.gameObject);
             }
-
             _blocks.Clear();
             ClearSelection();
         }
@@ -173,8 +226,7 @@ namespace Gui.ShipService
         {
             get
             {
-                if (_rectTransform == null)
-                    _rectTransform = GetComponent<RectTransform>();
+                if (_rectTransform == null) _rectTransform = GetComponent<RectTransform>();
                 return _rectTransform;
             }
         }

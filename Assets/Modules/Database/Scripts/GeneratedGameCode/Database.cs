@@ -16,7 +16,9 @@ namespace GameDatabase
 {
 	public partial interface IDatabase
 	{
+		CellSettings CellSettings { get; }
 		CombatSettings CombatSettings { get; }
+		CustomCategorySettings CustomCategorySettings { get; }
 		DatabaseSettings DatabaseSettings { get; }
 		DebugSettings DebugSettings { get; }
 		ExplorationSettings ExplorationSettings { get; }
@@ -97,7 +99,9 @@ namespace GameDatabase
 		public const int VersionMajor = 1;
 		public const int VersionMinor = 7;
 
+		public CellSettings CellSettings { get; private set; }
 		public CombatSettings CombatSettings { get; private set; }
+		public CustomCategorySettings CustomCategorySettings { get; private set; }
 		public DatabaseSettings DatabaseSettings { get; private set; }
 		public DebugSettings DebugSettings { get; private set; }
 		public ExplorationSettings ExplorationSettings { get; private set; }
@@ -202,7 +206,9 @@ namespace GameDatabase
 			_visualEffectMap.Clear();
 			_weaponMap.Clear();
 
+			CellSettings = null;
 			CombatSettings = null;
+			CustomCategorySettings = null;
 			DatabaseSettings = null;
 			DebugSettings = null;
 			ExplorationSettings = null;
@@ -364,8 +370,12 @@ namespace GameDatabase
                     if (!_database._localizations.ContainsKey(item.Key))
                         _database._localizations.Add(item.Key, item.Value);
 
+				if (_database.CellSettings == null)
+					_database.CellSettings = CellSettings.Create(_content.CellSettings ?? new Serializable.CellSettingsSerializable { ItemType = Enums.ItemType.CellSettings }, this);
 				if (_database.CombatSettings == null)
 					_database.CombatSettings = CombatSettings.Create(_content.CombatSettings ?? new Serializable.CombatSettingsSerializable { ItemType = Enums.ItemType.CombatSettings }, this);
+				if (_database.CustomCategorySettings == null)
+					_database.CustomCategorySettings = CustomCategorySettings.Create(_content.CustomCategorySettings ?? new Serializable.CustomCategorySettingsSerializable { ItemType = Enums.ItemType.CustomCategorySettings }, this);
 				if (_database.DatabaseSettings == null)
 					_database.DatabaseSettings = DatabaseSettings.Create(_content.DatabaseSettings ?? new Serializable.DatabaseSettingsSerializable { ItemType = Enums.ItemType.DatabaseSettings }, this);
 				if (_database.DebugSettings == null)

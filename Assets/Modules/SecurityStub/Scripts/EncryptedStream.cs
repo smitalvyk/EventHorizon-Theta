@@ -5,6 +5,8 @@ namespace Security
     public class EncryptedReadStream : Stream
     {
         private readonly Stream _stream;
+        private uint _w;
+        private uint _z;
 
         public override bool CanRead => true;
         public override bool CanSeek => false;
@@ -14,16 +16,36 @@ namespace Security
         public EncryptedReadStream(Stream stream, int length)
         {
             _stream = stream;
+
+            // ОТНИМАЕМ 1 БАЙТ ЧЕКСУММЫ, ЧТОБЫ КЛЮЧИ СОВПАЛИ СО СБОРЩИКОМ!
+            uint actualSize = (uint)(length - 1);
+
+            _w = 0x12345678 ^ actualSize;
+            _z = 0x87654321 ^ actualSize;
         }
 
         public override int ReadByte()
         {
-            return _stream.ReadByte();
+            int b = _stream.ReadByte();
+            if (b == -1) return -1;
+            return b ^ (byte)Random();
         }
 
         public override int Read(byte[] buffer, int offset, int count)
         {
-            return _stream.Read(buffer, offset, count);
+            int read = _stream.Read(buffer, offset, count);
+            for (int i = 0; i < read; i++)
+            {
+                buffer[offset + i] ^= (byte)Random();
+            }
+            return read;
+        }
+
+        private uint Random()
+        {
+            _z = 36969 * (_z & 65535) + (_z >> 16);
+            _w = 18000 * (_w & 65535) + (_w >> 16);
+            return (_z << 16) + _w;
         }
 
         public override long Position

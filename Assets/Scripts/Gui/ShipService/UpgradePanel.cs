@@ -11,6 +11,7 @@ using Services.Resources;
 using UnityEngine.UI;
 using ViewModel.Common;
 using Zenject;
+using System.Collections.Generic;
 
 namespace Gui.ShipService
 {
@@ -41,7 +42,13 @@ namespace Gui.ShipService
         [Inject] private readonly IResourceLocator _resourceLocator;
         [Inject] private readonly ILocalization _localization;
         [Inject] private readonly ISoundPlayer _soundPlayer;
-        
+
+        [Inject] private readonly GameDatabase.IDatabase _database;
+
+        private Dictionary<Toggle, CellType> _toggleToCellType = new Dictionary<Toggle, CellType>();
+        private List<GameObject> _customToggles = new List<GameObject>();
+        private bool _togglesSetup = false;
+
         public void Initialize(IShip ship, Faction faction, int level)
         {
             _ship = ship;
@@ -52,36 +59,200 @@ namespace Gui.ShipService
             _shipLayout.ClearSelection();
             _shipInfo = new ShipInformation(_ship, _faction, _level);
 
+            SetupCustomToggles();
             UpdateControls();
+        }
+
+        private void SetupCustomToggles()
+        {
+            if (_togglesSetup) return;
+            _togglesSetup = true;
+
+            _toggleToCellType[_outerBlockToggle] = CellType.Outer;
+            _toggleToCellType[_innerBlockToggle] = CellType.Inner;
+            _toggleToCellType[_engineBlockToggle] = CellType.Engine;
+            _toggleToCellType[_weaponBlockToggle] = CellType.Weapon;
+
+            try
+            {
+                if (_database != null && _database.CellSettings != null)
+                {
+                    foreach (var c in _database.CellSettings.Cells)
+                    {
+                        if ((object)c != null && !string.IsNullOrEmpty(c.Symbol))
+                        {
+                            CellType customType = (CellType)c.Symbol[0];
+                            UnityEngine.Color baseC = c.Color;
+
+                            GameObject newToggleGo = Instantiate(_innerBlockToggle.gameObject, _innerBlockToggle.transform.parent);
+                            newToggleGo.SetActive(true);
+
+                            // Move to the end of the list and scale down to create margins
+                            newToggleGo.transform.SetAsLastSibling();
+                            newToggleGo.transform.localScale = new Vector3(0.95f, 0.95f, 1f);
+
+                            Toggle newToggle = newToggleGo.GetComponent<Toggle>();
+                            newToggle.group = _cellToggleGroup;
+
+                            Image rootImage = newToggleGo.GetComponent<Image>();
+                            Image targetGraphicImage = newToggle.targetGraphic as Image;
+                            Image checkmarkImage = newToggle.graphic as Image;
+                            Transform iconTransform = newToggleGo.transform.Find("Icon") ?? newToggleGo.transform.Find("ItemIcon");
+                            Image iconImage = (iconTransform != null) ? iconTransform.GetComponent<Image>() : null;
+
+                            if (!string.IsNullOrEmpty(c.Image))
+                            {
+                                Sprite customSprite = _resourceLocator.GetSprite(c.Image) ?? Resources.Load<Sprite>(c.Image);
+                                if (customSprite != null)
+                                {
+                                    // 1. Base shape
+                                    if (rootImage != null)
+                                    {
+                                        rootImage.sprite = customSprite;
+                                        rootImage.type = Image.Type.Simple;
+                                        rootImage.color = baseC;
+                                        rootImage.transform.SetAsLastSibling();
+                                    }
+
+                                    // 2. Selection highlight (white overlay)
+                                    if (checkmarkImage != null)
+                                    {
+                                        checkmarkImage.sprite = customSprite;
+                                        checkmarkImage.type = Image.Type.Simple;
+                                        checkmarkImage.color = new UnityEngine.Color(1f, 1f, 1f, 0.5f);
+
+                                        checkmarkImage.rectTransform.anchorMin = Vector2.zero;
+                                        checkmarkImage.rectTransform.anchorMax = Vector2.one;
+                                        checkmarkImage.rectTransform.offsetMin = Vector2.zero;
+                                        checkmarkImage.rectTransform.offsetMax = Vector2.zero;
+                                        checkmarkImage.rectTransform.localScale = new Vector3(1.05f, 1.05f, 1f);
+
+                                        checkmarkImage.transform.SetAsLastSibling();
+                                    }
+
+                                    // 3. Gear icon
+                                    if (iconImage != null)
+                                    {
+                                        iconImage.gameObject.SetActive(true);
+                                        iconImage.color = baseC;
+                                        iconImage.transform.SetAsLastSibling();
+                                    }
+
+                                    // 4. Shadow mask container
+                                    GameObject maskGo = new GameObject("ShadowMask");
+                                    maskGo.transform.SetParent(newToggleGo.transform, false);
+                                    RectTransform maskRt = maskGo.AddComponent<RectTransform>();
+                                    maskRt.anchorMin = Vector2.zero;
+                                    maskRt.anchorMax = Vector2.one;
+                                    maskRt.offsetMin = Vector2.zero;
+                                    maskRt.offsetMax = Vector2.zero;
+                                    maskRt.localScale = Vector3.one;
+
+                                    Image maskImg = maskGo.AddComponent<Image>();
+                                    maskImg.sprite = customSprite;
+                                    maskImg.type = Image.Type.Simple;
+
+                                    Mask mask = maskGo.AddComponent<Mask>();
+                                    mask.showMaskGraphic = false;
+                                    maskGo.transform.SetAsLastSibling();
+
+                                    // 5. Disabled state shadow (solid square cut by the mask)
+                                    if (targetGraphicImage != null)
+                                    {
+                                        targetGraphicImage.enabled = true;
+                                        targetGraphicImage.transform.SetParent(maskGo.transform, false);
+
+                                        targetGraphicImage.sprite = null;
+                                        targetGraphicImage.type = Image.Type.Simple;
+                                        targetGraphicImage.color = UnityEngine.Color.white;
+
+                                        targetGraphicImage.rectTransform.anchorMin = Vector2.zero;
+                                        targetGraphicImage.rectTransform.anchorMax = Vector2.one;
+                                        targetGraphicImage.rectTransform.offsetMin = Vector2.zero;
+                                        targetGraphicImage.rectTransform.offsetMax = Vector2.zero;
+
+                                        newToggle.targetGraphic = targetGraphicImage;
+                                    }
+
+                                    // Set transitions: disabled state uses 0.6 alpha shadow
+                                    ColorBlock cb = newToggle.colors;
+                                    cb.normalColor = new UnityEngine.Color(0f, 0f, 0f, 0f);
+                                    cb.highlightedColor = new UnityEngine.Color(1f, 1f, 1f, 0.1f);
+                                    cb.pressedColor = new UnityEngine.Color(0f, 0f, 0f, 0.3f);
+                                    cb.selectedColor = new UnityEngine.Color(0f, 0f, 0f, 0f);
+                                    cb.disabledColor = new UnityEngine.Color(0f, 0f, 0f, 0.6f);
+                                    cb.colorMultiplier = 1f;
+                                    newToggle.colors = cb;
+                                }
+                            }
+                            else
+                            {
+                                // Vanilla square cell fallback
+                                if (rootImage != null) rootImage.color = baseC;
+                                if (iconImage != null)
+                                {
+                                    iconImage.gameObject.SetActive(true);
+                                    iconImage.color = baseC;
+                                }
+                                if (targetGraphicImage != null) targetGraphicImage.color = baseC;
+                                if (checkmarkImage != null) checkmarkImage.color = baseC;
+                            }
+
+                            // Cleanup unused vanilla layers, preserving the new ShadowMask
+                            foreach (var img in newToggleGo.GetComponentsInChildren<Image>(true))
+                            {
+                                if (img != rootImage &&
+                                    img != targetGraphicImage &&
+                                    img != checkmarkImage &&
+                                    img != iconImage &&
+                                    img.gameObject.name != "ShadowMask")
+                                {
+                                    img.enabled = false;
+                                }
+                            }
+
+                            newToggle.onValueChanged.AddListener((isOn) => {
+                                if (isOn) OnCellTypeSelected(newToggle);
+                            });
+
+                            _toggleToCellType[newToggle] = customType;
+                            _customToggles.Add(newToggleGo);
+                        }
+                    }
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[MOD] Cell toggle generation error: {e.Message}");
+            }
         }
 
         public void OnBlockSelected(int x, int y)
         {
             _selectedBlockX = x;
             _selectedBlockY = y;
-            _outerBlockToggle.isOn = true;
-            _innerBlockToggle.isOn = false;
-            _engineBlockToggle.isOn = false;
-            _weaponBlockToggle.isOn = false;
+
+            foreach (var kvp in _toggleToCellType)
+            {
+                kvp.Key.isOn = (kvp.Key == _outerBlockToggle);
+            }
+
+            _selectedCellType = CellType.Outer;
             UpdateControls();
         }
 
         public void OnCellTypeSelected(Toggle toggle)
         {
-            if (toggle == _outerBlockToggle)
-                _selectedCellType = CellType.Outer;
-            else if (toggle == _innerBlockToggle)
-                _selectedCellType = CellType.Inner;
-            else if (toggle == _engineBlockToggle)
-                _selectedCellType = CellType.Engine;
-            else if (toggle == _weaponBlockToggle)
-                _selectedCellType = CellType.Weapon;
+            if (_toggleToCellType.TryGetValue(toggle, out CellType type))
+            {
+                _selectedCellType = type;
+            }
         }
 
         public void OnAddButtonClicked()
         {
             var isBlockSelected = _selectedBlockX != _invalidBlock && _selectedBlockY != _invalidBlock;
-            if (!isBlockSelected || !_shipInfo.IsShipLevelEnough || !_shipInfo.IsShipyardLevelEnough || 
+            if (!isBlockSelected || !_shipInfo.IsShipLevelEnough || !_shipInfo.IsShipyardLevelEnough ||
                 !_shipInfo.Price1.IsEnough(_playerResources) || !_shipInfo.Price2.IsEnough(_playerResources)) return;
             if (!_ship.Model.LayoutModifications.TryAddCell(_selectedBlockX, _selectedBlockY, _selectedCellType)) return;
 
@@ -150,10 +321,10 @@ namespace Gui.ShipService
 
                 _addButton.interactable = _shipInfo.IsShipLevelEnough && _shipInfo.IsShipyardLevelEnough && price1.IsEnough(_playerResources) && price2.IsEnough(_playerResources);
 
-                _outerBlockToggle.interactable = _ship.Model.LayoutModifications.IsCellValid(_selectedBlockX, _selectedBlockY, CellType.Outer);
-                _innerBlockToggle.interactable = _ship.Model.LayoutModifications.IsCellValid(_selectedBlockX, _selectedBlockY, CellType.Inner);
-                _engineBlockToggle.interactable = _ship.Model.LayoutModifications.IsCellValid(_selectedBlockX, _selectedBlockY, CellType.Engine);
-                _weaponBlockToggle.interactable = _ship.Model.LayoutModifications.IsCellValid(_selectedBlockX, _selectedBlockY, CellType.Weapon);
+                foreach (var kvp in _toggleToCellType)
+                {
+                    kvp.Key.interactable = _ship.Model.LayoutModifications.IsCellValid(_selectedBlockX, _selectedBlockY, kvp.Value);
+                }
             }
             else
             {
@@ -203,9 +374,9 @@ namespace Gui.ShipService
                 var starsAllowed = true;
 #endif
 
-                Price1 = Price.Common(starsAllowed ? (Cells + 1) * 1000 : (Cells+1)*2000);
-                Price2 = starsAllowed ? Price.Premium(1 + Cells/2) : new Price(0, Currency.Credits);
-                ResetPrice = starsAllowed ? Price.Premium(Cells) : Price.Common(Cells*2000);
+                Price1 = Price.Common(starsAllowed ? (Cells + 1) * 1000 : (Cells + 1) * 2000);
+                Price2 = starsAllowed ? Price.Premium(1 + Cells / 2) : new Price(0, Currency.Credits);
+                ResetPrice = starsAllowed ? Price.Premium(Cells) : Price.Common(Cells * 2000);
 
                 RequiredLevel = TotalCells > 0 ? 5 + Mathf.Min(5 * Cells, 95 * Cells / TotalCells) : 0;
 
