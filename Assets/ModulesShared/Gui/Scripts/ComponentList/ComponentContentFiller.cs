@@ -6,6 +6,7 @@ using Services.ObjectPool;
 using Services.Resources;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.UI;
 using Zenject;
 
 namespace Gui.ComponentList
@@ -21,10 +22,21 @@ namespace Gui.ComponentList
         [SerializeField] private bool _showParents = true;
         [SerializeField] private bool _showSelected = false;
 
+        [Header("Search UI")]
+        [SerializeField] private InputField _searchInput;
+
         [SerializeField] private ItemSelectedEvent _itemSelectedEvent = new ItemSelectedEvent();
 
         [Serializable]
-        public class ItemSelectedEvent : UnityEvent<ComponentInfo> {}
+        public class ItemSelectedEvent : UnityEvent<ComponentInfo> { }
+
+        private ComponentInfo _selectedItem;
+        private IComponentTreeNode _node;
+        private IComponentQuantityProvider _quantityProvider;
+        private readonly List<IComponentTreeNode> _nodes = new List<IComponentTreeNode>();
+        private readonly List<ComponentInfo> _components = new List<ComponentInfo>();
+
+        private string _searchQuery = "";
 
         private void Awake()
         {
@@ -36,25 +48,80 @@ namespace Gui.ComponentList
         {
             _node = node;
             _quantityProvider = node.QuantityProvider;
-            _components.Clear();
-            foreach (var item in node.Components)
-                if (_quantityProvider.GetQuantity(item) > 0)
-                    _components.Add(item);
 
+            // Reset search state
+            _searchQuery = "";
+            if (_searchInput != null) _searchInput.text = "";
+
+            RebuildData();
+        }
+
+        public void ExecuteSearch()
+        {
+            if (_searchInput != null)
+            {
+                _searchQuery = _searchInput.text != null ? _searchInput.text.ToLower() : "";
+                RebuildData();
+            }
+        }
+
+        private void RebuildData()
+        {
+            _components.Clear();
             _nodes.Clear();
 
-            if (_showParents)
-                for (var parent = node.Parent; parent != null; parent = parent.Parent)
-                    if (parent.ShouldNotExpand())
-                        _nodes.Insert(0,parent);
+            if (!string.IsNullOrEmpty(_searchQuery))
+            {
+                // Search Mode: find items from root recursively
+                var root = _node;
+                while (root.Parent != null)
+                    root = root.Parent;
 
-            if (_showSelected && node.IsVisible)
-                _nodes.Add(node);
+                FindComponentsRecursive(root);
+            }
+            else
+            {
+                // Navigation Mode: show current folder items
+                foreach (var item in _node.Components)
+                    if (_quantityProvider.GetQuantity(item) > 0)
+                        _components.Add(item);
 
-            _nodes.AddRange(node.Nodes);
+                if (_showParents)
+                    for (var parent = _node.Parent; parent != null; parent = parent.Parent)
+                        if (parent.ShouldNotExpand())
+                            _nodes.Insert(0, parent);
+
+                if (_showSelected && _node.IsVisible)
+                    _nodes.Add(_node);
+
+                _nodes.AddRange(_node.Nodes);
+            }
 
             if (_components.IndexOf(SelectedItem) < 0)
                 SelectedItem = ComponentInfo.Empty;
+        }
+
+        private void FindComponentsRecursive(IComponentTreeNode node)
+        {
+            foreach (var item in node.Components)
+            {
+                if (_quantityProvider.GetQuantity(item) > 0)
+                {
+                    // Filter by localized name
+                    string itemName = item.GetName(_localization).ToLower();
+
+                    if (itemName.Contains(_searchQuery))
+                    {
+                        if (!_components.Contains(item))
+                            _components.Add(item);
+                    }
+                }
+            }
+
+            foreach (var child in node.Nodes)
+            {
+                FindComponentsRecursive(child);
+            }
         }
 
         public GameObject GetListItem(int index, int itemType, GameObject obj)
@@ -87,7 +154,7 @@ namespace Gui.ComponentList
             get { return _selectedItem; }
             set
             {
-                if (_selectedItem == value)
+                if (_selectedItem.Equals(value))
                     return;
 
                 _selectedItem = value;
@@ -105,7 +172,7 @@ namespace Gui.ComponentList
         {
             item.gameObject.SetActive(true);
             item.Initialize(component, _quantityProvider.GetQuantity(component));
-            item.Selected = component == SelectedItem;
+            item.Selected = component.Equals(SelectedItem);
         }
 
         private void UpdateItem(GroupListItem item, IComponentTreeNode node)
@@ -113,11 +180,5 @@ namespace Gui.ComponentList
             item.gameObject.SetActive(true);
             item.Initialize(node, _node);
         }
-
-        private ComponentInfo _selectedItem;
-        private IComponentTreeNode _node;
-        private IComponentQuantityProvider _quantityProvider;
-        private readonly List<IComponentTreeNode> _nodes = new List<IComponentTreeNode>();
-        private readonly List<ComponentInfo> _components = new List<ComponentInfo>();
     }
 }
