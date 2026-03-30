@@ -57,6 +57,7 @@ SpriteAtlas:
     - d56bda84b7da45b47aa19d35cf4319b8: 21300000
     - 0a38e2789b2614147b441e84715bf4d8: 21300000
     - e8c7b1f9f58a3714abea4bbcfc123c28: 21300000
+    - b84670ba3793b854f89881280ee1f0d4: 21300000
     - c82f081eb9e5aae4dbf8788ee480c177: 21300000
     - b748a64ebbc1ae74c9b98c145c8a6fc6: 21300000
     - 5bbd27ae715ed5a4383e6204d443fb4a: 21300000
@@ -69,6 +70,7 @@ SpriteAtlas:
   - {fileID: 21300000, guid: d56bda84b7da45b47aa19d35cf4319b8, type: 3}
   - {fileID: 21300000, guid: 0a38e2789b2614147b441e84715bf4d8, type: 3}
   - {fileID: 21300000, guid: e8c7b1f9f58a3714abea4bbcfc123c28, type: 3}
+  - {fileID: 21300000, guid: b84670ba3793b854f89881280ee1f0d4, type: 3}
   - {fileID: 21300000, guid: c82f081eb9e5aae4dbf8788ee480c177, type: 3}
   - {fileID: 21300000, guid: b748a64ebbc1ae74c9b98c145c8a6fc6, type: 3}
   - {fileID: 21300000, guid: 5bbd27ae715ed5a4383e6204d443fb4a, type: 3}
@@ -80,6 +82,7 @@ SpriteAtlas:
   - hangar4
   - icon_attack
   - icon_missile
+  - hangar0
   - icon_battery
   - hangar1
   - icon_radar

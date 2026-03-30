@@ -68,6 +68,7 @@ SpriteAtlas:
     - 337db6900bc267b4983fc3d05bf3512b: 21300000
     - 360aebd018a34224d8ccee96437c81b0: 21300000
     - f03d8ce03d9edec429e0e719f7a60a46: 21300000
+    - 862fb681755e57d498d52b48f420cadb: 21300000
     - 4fe4c4020fcaf7f42b37da5c85c15a28: 21300000
     - dac76372b5b510444a0ca7faeba5d480: 21300000
     - 54db1fa27f05f6241a6341846f447099: 21300000
@@ -91,6 +92,7 @@ SpriteAtlas:
     - 39643e686571b5e45a16679982d4513c: 21300000
     - b48e6e3a82e818945b26df929ec0618f: 21300000
     - f5bc545aef80d7f468758a3ce05ea2eb: 21300000
+    - 1f9d2bea7a5ac5e4c8f1b5d7ab10c88b: 21300000
     - 2288f62b132d17f46bb6aeb33eba1d4b: 21300000
     - 963c225bc66e72b4f8c14fc1f8f0f8b5: 21300000
     - d851429b00ceff045bb067e0dfb0acc0: 21300000
@@ -116,6 +118,7 @@ SpriteAtlas:
   - {fileID: 21300000, guid: 337db6900bc267b4983fc3d05bf3512b, type: 3}
   - {fileID: 21300000, guid: 360aebd018a34224d8ccee96437c81b0, type: 3}
   - {fileID: 21300000, guid: f03d8ce03d9edec429e0e719f7a60a46, type: 3}
+  - {fileID: 21300000, guid: 862fb681755e57d498d52b48f420cadb, type: 3}
   - {fileID: 21300000, guid: 4fe4c4020fcaf7f42b37da5c85c15a28, type: 3}
   - {fileID: 21300000, guid: dac76372b5b510444a0ca7faeba5d480, type: 3}
   - {fileID: 21300000, guid: 54db1fa27f05f6241a6341846f447099, type: 3}
@@ -139,6 +142,7 @@ SpriteAtlas:
   - {fileID: 21300000, guid: 39643e686571b5e45a16679982d4513c, type: 3}
   - {fileID: 21300000, guid: b48e6e3a82e818945b26df929ec0618f, type: 3}
   - {fileID: 21300000, guid: f5bc545aef80d7f468758a3ce05ea2eb, type: 3}
+  - {fileID: 21300000, guid: 1f9d2bea7a5ac5e4c8f1b5d7ab10c88b, type: 3}
   - {fileID: 21300000, guid: 2288f62b132d17f46bb6aeb33eba1d4b, type: 3}
   - {fileID: 21300000, guid: 963c225bc66e72b4f8c14fc1f8f0f8b5, type: 3}
   - {fileID: 21300000, guid: d851429b00ceff045bb067e0dfb0acc0, type: 3}
@@ -163,6 +167,7 @@ SpriteAtlas:
   - ui_button4l
   - ui_panel2h2
   - ui_button3f
+  - ui_panel3t_h
   - ui_scroll_right
   - ui_content1tr_dark
   - ui_frame2
@@ -186,6 +191,7 @@ SpriteAtlas:
   - ui_panel2m
   - ui_button2
   - ui_panel3b
+  - ui_panel3b_h
   - ui_panel2l
   - ui_content1l_bg
   - ui_panel2b
