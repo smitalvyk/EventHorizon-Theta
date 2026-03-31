@@ -29,6 +29,7 @@ namespace Gui.ComponentList
             IsVisible = true;
 
             LoadCustomCategoriesSafe();
+            ApplyVanillaOverrides();
         }
 
         public void AddNode(IComponentTreeNode node, bool inTheEnd = false)
@@ -56,7 +57,7 @@ namespace Gui.ComponentList
         {
             int categoryId = (int)componentInfo.Data.DisplayCategory;
 
-            if (categoryId >= 7 && categoryId <= 99 && _parsedCustomCategories != null)
+            if (categoryId >= 7 && categoryId <= 9999 && _parsedCustomCategories != null)
             {
                 var customData = _parsedCustomCategories.FirstOrDefault(c => c.Id == categoryId);
                 if (customData != null)
@@ -93,6 +94,7 @@ namespace Gui.ComponentList
             public string Icon;
             public int ParentId;
             public bool AlwaysShow;
+            public int Priority;
         }
 
         private List<CustomCategoryInfo> _parsedCustomCategories;
@@ -131,6 +133,7 @@ namespace Gui.ComponentList
                 var iconVal = GetMemberValue(t, item, "Icon");
                 var parentIdVal = GetMemberValue(t, item, "ParentId");
                 var alwaysShowVal = GetMemberValue(t, item, "AlwaysShow");
+                var priorityVal = GetMemberValue(t, item, "Priority");
 
                 var catInfo = new CustomCategoryInfo
                 {
@@ -138,7 +141,8 @@ namespace Gui.ComponentList
                     Name = nameVal != null ? nameVal.ToString() : "",
                     Icon = iconVal != null ? iconVal.ToString() : "",
                     ParentId = parentIdVal != null ? System.Convert.ToInt32(parentIdVal) : 0,
-                    AlwaysShow = alwaysShowVal != null ? System.Convert.ToBoolean(alwaysShowVal) : true
+                    AlwaysShow = alwaysShowVal != null ? System.Convert.ToBoolean(alwaysShowVal) : true,
+                    Priority = priorityVal != null ? System.Convert.ToInt32(priorityVal) : -1
                 };
 
                 _parsedCustomCategories.Add(catInfo);
@@ -156,6 +160,50 @@ namespace Gui.ComponentList
             return null;
         }
 
+        // Apply custom names/icons to vanilla folders (IDs 1-6)
+        private void ApplyVanillaOverrides()
+        {
+            if (_parsedCustomCategories == null) return;
+
+            foreach (var cat in _parsedCustomCategories)
+            {
+                if (cat.Id >= 1 && cat.Id <= 6)
+                {
+                    bool hasName = !string.IsNullOrEmpty(cat.Name);
+                    bool hasIcon = !string.IsNullOrEmpty(cat.Icon);
+                    SpriteId? newIcon = hasIcon ? new SpriteId(cat.Icon, SpriteId.Type.Default) : (SpriteId?)null;
+
+                    switch (cat.Id)
+                    {
+                        case 1:
+                            if (hasName) ((WeaponNode)_weaponNode).Name = cat.Name;
+                            if (hasIcon) ((WeaponNode)_weaponNode).Icon = newIcon.Value;
+                            break;
+                        case 2:
+                            if (hasName) ((CommonNode)_armorNode).Name = cat.Name;
+                            if (hasIcon) ((CommonNode)_armorNode).Icon = newIcon.Value;
+                            break;
+                        case 3:
+                            if (hasName) ((CommonNode)_energyNode).Name = cat.Name;
+                            if (hasIcon) ((CommonNode)_energyNode).Icon = newIcon.Value;
+                            break;
+                        case 4:
+                            if (hasName) ((CommonNode)_engineNode).Name = cat.Name;
+                            if (hasIcon) ((CommonNode)_engineNode).Icon = newIcon.Value;
+                            break;
+                        case 5:
+                            if (hasName) ((CommonNode)_droneNode).Name = cat.Name;
+                            if (hasIcon) ((CommonNode)_droneNode).Icon = newIcon.Value;
+                            break;
+                        case 6:
+                            if (hasName) ((CommonNode)_specialNode).Name = cat.Name;
+                            if (hasIcon) ((CommonNode)_specialNode).Icon = newIcon.Value;
+                            break;
+                    }
+                }
+            }
+        }
+
         private readonly Dictionary<int, DynamicCategoryNode> _allCustomNodes = new Dictionary<int, DynamicCategoryNode>();
         private readonly List<DynamicCategoryNode> _rootDynamicNodes = new List<DynamicCategoryNode>();
 
@@ -166,10 +214,10 @@ namespace Gui.ComponentList
 
             SpriteId icon = string.IsNullOrEmpty(catData.Icon) ? new SpriteId("icons/icon_gear", SpriteId.Type.Default) : new SpriteId(catData.Icon, SpriteId.Type.Default);
 
-            var node = new DynamicCategoryNode(catData.Name, icon, this, catData.AlwaysShow);
+            var node = new DynamicCategoryNode(catData.Name, icon, this, catData.AlwaysShow, catData.Priority);
             _allCustomNodes.Add(catData.Id, node);
 
-            if (catData.ParentId >= 7 && catData.ParentId <= 99)
+            if (catData.ParentId >= 7 && catData.ParentId <= 9999)
             {
                 var parentData = _parsedCustomCategories.FirstOrDefault(c => c.Id == catData.ParentId);
                 if (parentData != null)
@@ -179,6 +227,21 @@ namespace Gui.ComponentList
                     node.SetParent(parentNode);
                     return node;
                 }
+            }
+            // Support nesting custom folders inside vanilla folders
+            else if (catData.ParentId >= 1 && catData.ParentId <= 6)
+            {
+                switch (catData.ParentId)
+                {
+                    case 1: ((WeaponNode)_weaponNode).AddSubFolder(node); break;
+                    case 2: ((CommonNode)_armorNode).AddSubFolder(catData.Id, node); break;
+                    case 3: ((CommonNode)_energyNode).AddSubFolder(catData.Id, node); break;
+                    case 4: ((CommonNode)_engineNode).AddSubFolder(catData.Id, node); break;
+                    case 5: ((CommonNode)_droneNode).AddSubFolder(catData.Id, node); break;
+                    case 6: ((CommonNode)_specialNode).AddSubFolder(catData.Id, node); break;
+                }
+                node.SetParent(this);
+                return node;
             }
 
             _rootDynamicNodes.Add(node);
@@ -198,20 +261,42 @@ namespace Gui.ComponentList
         public IEnumerable<ComponentInfo> Components { get { return Children.ChildrenComponents(); } }
         public void Clear() { Children.Clear(); }
 
+        private struct SortableNode
+        {
+            public IComponentTreeNode Node;
+            public int Priority;
+            public bool IsVanilla;
+        }
+
         private IEnumerable<IComponentTreeNode> Children
         {
             get
             {
                 foreach (var node in _extraNodes1) yield return node;
 
-                yield return _weaponNode;
-                yield return _armorNode;
-                yield return _energyNode;
-                yield return _droneNode;
-                yield return _engineNode;
-                yield return _specialNode;
+                var sortedList = new List<SortableNode>();
 
-                foreach (var rootNode in _rootDynamicNodes) yield return rootNode;
+                sortedList.Add(new SortableNode { Node = _weaponNode, Priority = 1, IsVanilla = true });
+                sortedList.Add(new SortableNode { Node = _armorNode, Priority = 2, IsVanilla = true });
+                sortedList.Add(new SortableNode { Node = _energyNode, Priority = 3, IsVanilla = true });
+                sortedList.Add(new SortableNode { Node = _engineNode, Priority = 4, IsVanilla = true });
+                sortedList.Add(new SortableNode { Node = _droneNode, Priority = 5, IsVanilla = true });
+                sortedList.Add(new SortableNode { Node = _specialNode, Priority = 6, IsVanilla = true });
+
+                foreach (var customNode in _rootDynamicNodes)
+                {
+                    sortedList.Add(new SortableNode { Node = customNode, Priority = customNode.Priority, IsVanilla = false });
+                }
+
+                // Sort by Priority (-1 goes to the bottom), then vanilla elements go first if priorities match
+                var orderedNodes = sortedList
+                    .OrderBy(x => x.Priority == -1 ? 9999 : x.Priority)
+                    .ThenBy(x => x.IsVanilla ? 0 : 1);
+
+                foreach (var item in orderedNodes)
+                {
+                    yield return item.Node;
+                }
 
                 foreach (var node in _extraNodes2) yield return node;
             }
@@ -240,15 +325,18 @@ namespace Gui.ComponentList
         private IComponentTreeNode _parent;
         private int _count = -1;
 
+        public int Priority { get; }
+
         private readonly List<DynamicCategoryNode> _subFolders = new List<DynamicCategoryNode>();
         private readonly Dictionary<int, IComponentTreeNode> _components = new Dictionary<int, IComponentTreeNode>();
 
-        public DynamicCategoryNode(string name, SpriteId icon, IComponentTreeNode parent, bool alwaysShow)
+        public DynamicCategoryNode(string name, SpriteId icon, IComponentTreeNode parent, bool alwaysShow, int priority)
         {
             _name = name;
             _icon = icon;
             _parent = parent;
             _alwaysShow = alwaysShow;
+            Priority = priority;
 
             if (_alwaysShow)
                 _quantityProvider = new CustomQuantityProviderWrapper(parent.QuantityProvider);
@@ -298,7 +386,7 @@ namespace Gui.ComponentList
         {
             foreach (var folder in _subFolders)
             {
-                folder.Clear(); 
+                folder.Clear();
             }
             _components.Values.Clear();
             _count = -1;
@@ -334,8 +422,8 @@ namespace Gui.ComponentList
         public IComponentTreeNode Parent { get { return _parent; } }
         public IComponentQuantityProvider QuantityProvider { get { return _parent.QuantityProvider; } }
 
-        public string Name { get { return "$GroupWeapon"; } }
-        public SpriteId Icon { get { return new SpriteId("textures/icons/icon_weapon", SpriteId.Type.Default); } }
+        public string Name { get; set; } = "$GroupWeapon";
+        public SpriteId Icon { get; set; } = new SpriteId("textures/icons/icon_weapon", SpriteId.Type.Default);
         public UnityEngine.Color Color { get { return CommonNode.DefaultColor; } }
 
         public void Add(ComponentInfo componentInfo)
@@ -355,13 +443,21 @@ namespace Gui.ComponentList
         public void Clear() { Children.Clear(); }
         public bool IsVisible => true;
 
-        private IEnumerable<IComponentTreeNode> Children => _groups;
+        public void AddSubFolder(IComponentTreeNode folderNode)
+        {
+            _customSubFolders.Add(folderNode);
+            _count = -1;
+        }
+
+        // Display custom subfolders before standard items
+        private IEnumerable<IComponentTreeNode> Children => _customSubFolders.Concat(_groups);
         private IComponentTreeNode CreateNode(string name, SpriteId icon) { return new CommonNode(name, icon, this); }
 
         private int _count = -1;
         private readonly IComponentTreeNode _parent;
         private readonly Dictionary<char, int> _groupMap = new();
         private readonly List<IComponentTreeNode> _groups = new();
+        private readonly List<IComponentTreeNode> _customSubFolders = new List<IComponentTreeNode>();
     }
 
     public class ComponentNode : IComponentTreeNode
@@ -396,15 +492,15 @@ namespace Gui.ComponentList
         public CommonNode(string name, SpriteId icon, IComponentTreeNode parent)
         {
             _parent = parent;
-            _name = name;
-            _icon = icon;
+            Name = name;
+            Icon = icon;
         }
 
         public IComponentTreeNode Parent { get { return _parent; } }
         public IComponentQuantityProvider QuantityProvider { get { return _parent.QuantityProvider; } }
 
-        public string Name { get { return _name; } }
-        public SpriteId Icon { get { return _icon; } }
+        public string Name { get; set; }
+        public SpriteId Icon { get; set; }
         public UnityEngine.Color Color { get { return DefaultColor; } }
         public bool IsVisible => true;
 
@@ -422,17 +518,53 @@ namespace Gui.ComponentList
             _count = -1;
         }
 
-        public int ItemCount { get { if (_count < 0) _count = _components.Values.GetItemCount(); return _count; } }
-        public IEnumerable<IComponentTreeNode> Nodes { get { return _components.Values.Where(ComponentTreeNodeExtensions.ShouldNotExpand); } }
-        public IEnumerable<ComponentInfo> Components { get { return _components.Values.ChildrenComponents(); } }
-        public void Clear() { _components.Values.Clear(); }
+        public void AddSubFolder(int categoryId, IComponentTreeNode folderNode)
+        {
+            _customSubFolders.Add(folderNode);
+            _count = -1;
+        }
+
+        public int ItemCount
+        {
+            get
+            {
+                if (_count < 0)
+                    _count = _customSubFolders.GetItemCount() + _components.Values.GetItemCount();
+                return _count;
+            }
+        }
+
+        // Display custom subfolders before standard items
+        public IEnumerable<IComponentTreeNode> Nodes
+        {
+            get
+            {
+                return _customSubFolders.Concat(_components.Values.Where(ComponentTreeNodeExtensions.ShouldNotExpand));
+            }
+        }
+
+        public IEnumerable<ComponentInfo> Components
+        {
+            get
+            {
+                return _customSubFolders.ChildrenComponents().Concat(_components.Values.ChildrenComponents());
+            }
+        }
+
+        public void Clear()
+        {
+            // Clear items within folders, but keep the folder structure intact
+            foreach (var folder in _customSubFolders)
+            {
+                folder.Clear();
+            }
+            _components.Clear();
+        }
 
         private int _count;
-        private readonly string _name;
-        private readonly SpriteId _icon;
         private readonly IComponentTreeNode _parent;
         private readonly Dictionary<int, IComponentTreeNode> _components = new Dictionary<int, IComponentTreeNode>();
-
+        private readonly List<IComponentTreeNode> _customSubFolders = new List<IComponentTreeNode>();
         public static readonly UnityEngine.Color DefaultColor = Gui.Theme.UiTheme.Current.GetColor(Theme.ThemeColor.ButtonIcon);
     }
 

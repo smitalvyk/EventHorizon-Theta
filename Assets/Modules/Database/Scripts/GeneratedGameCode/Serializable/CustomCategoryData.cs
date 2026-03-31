@@ -20,5 +20,6 @@ namespace GameDatabase.Serializable
 		public string Icon;
 		public int ParentId;
 		public bool AlwaysShow = false;
+		public int Priority = -1;
 	}
 }

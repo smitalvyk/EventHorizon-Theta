@@ -46,7 +46,7 @@ namespace Gui.StarMap
         [SerializeField] private Toggle ShopFilterToggle;
         [SerializeField] private Toggle ArenaFilterToggle;
         [SerializeField] private Toggle XmasFilterToggle;
-        
+
         public void ShowInformation() { InformationPanel.Open(); }
         public void ShowCargoHold() { CargoHoldPanel.Open(); }
         public void ShowFleet() { FleetPanel.Open(); }
