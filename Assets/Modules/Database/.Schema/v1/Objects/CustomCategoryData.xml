@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <data name="CustomCategoryData" type="struct">
-    <member name="Id" type="int" minvalue="7" maxvalue="999" />
+    <member name="Id" type="int" minvalue="1" maxvalue="9999" />
     <member name="Name" type="string" />
     <member name="Icon" type="string" />
-    <member name="ParentId" type="int" minvalue="0" maxvalue="999" />
-	<member name="AlwaysShow" type="bool" default="false" />
+    <member name="ParentId" type="int" minvalue="0" maxvalue="9999" />
+    <member name="AlwaysShow" type="bool" default="false" />
+    <member name="Priority" type="int" default="-1" />
 </data>

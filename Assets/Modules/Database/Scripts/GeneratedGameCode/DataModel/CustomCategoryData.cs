@@ -24,11 +24,12 @@ namespace GameDatabase.DataModel
 
 		private CustomCategoryData(CustomCategoryDataSerializable serializable, Database.Loader loader)
 		{
-			Id = UnityEngine.Mathf.Clamp(serializable.Id, 7, 999);
+			Id = UnityEngine.Mathf.Clamp(serializable.Id, 1, 9999);
 			Name = serializable.Name;
 			Icon = serializable.Icon;
-			ParentId = UnityEngine.Mathf.Clamp(serializable.ParentId, 0, 999);
+			ParentId = UnityEngine.Mathf.Clamp(serializable.ParentId, 0, 9999);
 			AlwaysShow = serializable.AlwaysShow;
+			Priority = UnityEngine.Mathf.Clamp(serializable.Priority, -2147483648, 2147483647);
 
 			OnDataDeserialized(serializable, loader);
 		}
@@ -38,6 +39,7 @@ namespace GameDatabase.DataModel
 		public string Icon { get; private set; }
 		public int ParentId { get; private set; }
 		public bool AlwaysShow { get; private set; }
+		public int Priority { get; private set; }
 
 		public static CustomCategoryData DefaultValue { get; private set; }= new(new(), null);
 	}

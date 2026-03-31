@@ -4201,7 +4201,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 1294250589}
-        m_TargetAssemblyTypeName: 
+        m_TargetAssemblyTypeName: Gui.StarMap.GameMenu, Assembly-CSharp
         m_MethodName: ShowCargoHold
         m_Mode: 1
         m_Arguments:
@@ -29821,7 +29821,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 1294250589}
-        m_TargetAssemblyTypeName: 
+        m_TargetAssemblyTypeName: Gui.StarMap.GameMenu, Assembly-CSharp
         m_MethodName: ShowIapStore
         m_Mode: 1
         m_Arguments:
