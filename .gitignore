@@ -21,6 +21,8 @@
 /Assets/Modules/ShipModelGenerator*
 /Assets/Plugins/Android/*
 /Assets/Plugins/iOS/
+/Assets/Modules/SecurityStub/Scripts/EncryptedReadStream.Secret.cs
+/Assets/Modules/SecurityStub/Scripts/EncryptedReadStream.Secret.cs.meta
 
 **/bin/Debug/
 **/bin/Release/

@@ -2,7 +2,7 @@
 
 namespace Security
 {
-    public class EncryptedReadStream : Stream
+    public partial class EncryptedReadStream : Stream
     {
         private readonly Stream _stream;
 
@@ -11,19 +11,34 @@ namespace Security
         public override bool CanWrite => false;
         public override long Length => _stream.Length;
 
+        partial void SyncContext(int length);
+        partial void ProcessResult(ref int value);
+        partial void ProcessBlock(byte[] buffer, int offset, int count);
+
         public EncryptedReadStream(Stream stream, int length)
         {
             _stream = stream;
+            SyncContext(length);
         }
 
         public override int ReadByte()
         {
-            return _stream.ReadByte();
+            int b = _stream.ReadByte();
+            if (b != -1)
+            {
+                ProcessResult(ref b);
+            }
+            return b;
         }
 
         public override int Read(byte[] buffer, int offset, int count)
         {
-            return _stream.Read(buffer, offset, count);
+            int read = _stream.Read(buffer, offset, count);
+            if (read > 0)
+            {
+                ProcessBlock(buffer, offset, read);
+            }
+            return read;
         }
 
         public override long Position
