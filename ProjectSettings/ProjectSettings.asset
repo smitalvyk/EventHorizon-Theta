@@ -165,7 +165,7 @@ PlayerSettings:
   androidMaxAspectRatio: 2.1
   applicationIdentifier:
     Android: com.smitalvyk.EventHorizonTheta
-    Standalone: unity.ZipasGames.Event Horizon
+    Standalone: unity.smitalvyk.Event-Horizon-Theta
     Tizen: com.ZipasGames.EventHorizon
     iPhone: com.ZipasGames.EventHorizon
     tvOS: com.ZipasGames.EventHorizon
