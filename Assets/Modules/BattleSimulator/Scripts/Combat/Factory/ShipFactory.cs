@@ -73,7 +73,6 @@ namespace Combat.Factory
             bool createShadow)
         {
             //UnityEngine.Debug.Log("CreateShip: " + spec.Info.Id);
-
             bool isDrone = motherShip != null;
 
             var stats = spec.Stats;

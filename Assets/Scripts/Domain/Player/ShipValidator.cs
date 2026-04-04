@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using Constructor;
 using Constructor.Extensions;
 using Constructor.Model;
@@ -25,22 +26,24 @@ namespace Domain.Shipyard
             return false;
         }
 
-        public static bool IsLayoutValid(IShip ship)
+        public static bool IsLayoutValid(IShip ship, GameDatabase.IDatabase database = null, string contextName = "")
         {
             var componentTracker = new ComponentTracker(ship);
-            if (HasInvalidComponents(CreateShipLayout(ship, componentTracker), ship.Components, componentTracker)) return false;
-            if (IsSatelliteInvalid(ship, ship.FirstSatellite, componentTracker)) return false;
-            if (IsSatelliteInvalid(ship, ship.SecondSatellite, componentTracker)) return false;
+
+            if (HasInvalidComponents(CreateShipLayout(ship, componentTracker, database), ship.Components, componentTracker, contextName)) return false;
+            if (IsSatelliteInvalid(ship, ship.FirstSatellite, componentTracker, database)) return false;
+            if (IsSatelliteInvalid(ship, ship.SecondSatellite, componentTracker, database)) return false;
             return true;
         }
 
-        public static void RemoveInvalidParts(IShip ship, IShipPartsStorage storage = null)
+        public static void RemoveInvalidParts(IShip ship, IShipPartsStorage storage = null, GameDatabase.IDatabase database = null, string contextName = "")
         {
             var componentTracker = new ComponentTracker(ship);
-            RemoveInvalidComponents(CreateShipLayout(ship, componentTracker), ship.Components, componentTracker, storage);
+
+            RemoveInvalidComponents(CreateShipLayout(ship, componentTracker, database), ship.Components, componentTracker, storage, contextName);
             ValidateComponentsConfiguration(ship.Components, storage);
-            ship.FirstSatellite = ValidateSatellite(ship, ship.FirstSatellite, componentTracker, storage);
-            ship.SecondSatellite = ValidateSatellite(ship, ship.SecondSatellite, componentTracker, storage);
+            ship.FirstSatellite = ValidateSatellite(ship, ship.FirstSatellite, componentTracker, storage, database);
+            ship.SecondSatellite = ValidateSatellite(ship, ship.SecondSatellite, componentTracker, storage, database);
         }
 
         private static void ReturnSatelliteToStorage(Constructor.Satellites.ISatellite satellite, IShipPartsStorage storage)
@@ -51,23 +54,23 @@ namespace Domain.Shipyard
                 storage.AddComponent(item.Info);
         }
 
-        private static bool IsSatelliteInvalid(IShip ship, Constructor.Satellites.ISatellite satellite, ComponentTracker componentTracker)
+        private static bool IsSatelliteInvalid(IShip ship, Constructor.Satellites.ISatellite satellite, ComponentTracker componentTracker, GameDatabase.IDatabase database)
         {
             if (satellite == null) return false;
             if (!ship.IsSuitableSatelliteSize(satellite.Information))
             {
-                GameDiagnostics.Trace.LogError($"Incompatible satellite found: {satellite.Information.Name}");
+                GameDiagnostics.Trace.LogError($"Incompatible satellite: {satellite.Information.Name}");
                 return true;
             }
 
             var layout = new ShipLayoutModel(ShipElementType.SatelliteL, new ShipLayoutAdapter(satellite.Information.Layout),
-                satellite.Information.Barrels, componentTracker);
+                satellite.Information.Barrels, componentTracker, database);
 
-            return HasInvalidComponents(layout, satellite.Components, componentTracker);
+            return HasInvalidComponents(layout, satellite.Components, componentTracker, satellite.Information?.Name ?? "Satellite");
         }
 
         private static Constructor.Satellites.ISatellite ValidateSatellite(IShip ship, Constructor.Satellites.ISatellite satellite,
-            ComponentTracker componentTracker, IShipPartsStorage storage)
+            ComponentTracker componentTracker, IShipPartsStorage storage, GameDatabase.IDatabase database)
         {
             if (satellite == null) return null;
             if (!ship.IsSuitableSatelliteSize(satellite.Information))
@@ -77,16 +80,16 @@ namespace Domain.Shipyard
             }
 
             var layout = new ShipLayoutModel(ShipElementType.SatelliteL, new ShipLayoutAdapter(satellite.Information.Layout),
-                satellite.Information.Barrels, componentTracker);
+                satellite.Information.Barrels, componentTracker, database);
 
-            RemoveInvalidComponents(layout, satellite.Components, componentTracker, storage);
+            RemoveInvalidComponents(layout, satellite.Components, componentTracker, storage, satellite.Information?.Name ?? "Satellite");
             ValidateComponentsConfiguration(satellite.Components, storage);
             return satellite;
         }
 
-        private static ShipLayoutModel CreateShipLayout(IShip ship, ComponentTracker componentTracker)
+        private static ShipLayoutModel CreateShipLayout(IShip ship, ComponentTracker componentTracker, GameDatabase.IDatabase database)
         {
-            return new ShipLayoutModel(ShipElementType.Ship, ship.Model.Layout, ship.Model.Barrels, componentTracker);
+            return new ShipLayoutModel(ShipElementType.Ship, ship.Model.Layout, ship.Model.Barrels, componentTracker, database);
         }
 
         private static void ValidateComponentsConfiguration(IList<IntegratedComponent> components, IShipPartsStorage storage)
@@ -100,13 +103,7 @@ namespace Domain.Shipyard
 
                 if (!component.Info.IsValidModification)
                 {
-                    ComponentInfo replacement;
-                    if (storage == null)
-                    {
-                        replacement = new ComponentInfo(component.Info.Data, 
-                            component.Info.Data.PossibleModifications.FirstOrDefault(), component.Info.ModificationQuality);
-                    }
-                    else if (!storage.TryGetComponentReplacement(component.Info, out replacement))
+                    if (storage == null || !storage.TryGetComponentReplacement(component.Info, out var replacement))
                     {
                         components.QuickRemove(index);
                         continue;
@@ -115,24 +112,37 @@ namespace Domain.Shipyard
                     components[index] = new IntegratedComponent(replacement, component.X, component.Y,
                         component.BarrelId, component.KeyBinding, component.Behaviour, component.Locked);
 
-                    GameDiagnostics.Debug.LogError($"Component replaced: {component.Info.Data.Name}");
+                    GameDiagnostics.Trace.LogError($"Component replaced: {component.Info.Data.Name}");
                 }
-
                 index++;
             }
         }
 
-        private static bool HasInvalidComponents(ShipLayoutModel layout, IList<IntegratedComponent> components, ComponentTracker componentTracker)
+        private static bool HasInvalidComponents(ShipLayoutModel layout, IList<IntegratedComponent> components, ComponentTracker componentTracker, string contextName = "")
         {
-            for (int i = 0; i < components.Count; ++i)
-                if (!TryInstallComponent(components[i], layout, componentTracker))
-                    return true;
+            bool hasInvalid = false;
+            var groupedErrors = new Dictionary<string, List<string>>();
 
-            return false;
+            foreach (var comp in components)
+            {
+                if (!TryInstallComponent(comp, layout, componentTracker, null))
+                {
+                    string name = comp.Info.Data.Name;
+                    if (!groupedErrors.ContainsKey(name)) groupedErrors[name] = new List<string>();
+                    groupedErrors[name].Add($"[{comp.X},{comp.Y}]");
+                    hasInvalid = true;
+                }
+            }
+
+            string prefix = string.IsNullOrEmpty(contextName) ? "" : $"[{contextName}] ";
+            foreach (var kvp in groupedErrors)
+                GameDiagnostics.Trace.LogError($"{prefix}Invalid component '{kvp.Key}' at {string.Join(", ", kvp.Value)}");
+
+            return hasInvalid;
         }
 
         private static void RemoveInvalidComponents(ShipLayoutModel layout, IList<IntegratedComponent> components,
-            ComponentTracker componentTracker, IShipPartsStorage storage)
+            ComponentTracker componentTracker, IShipPartsStorage storage, string contextName = "")
         {
             if (components == null) return;
 
@@ -144,52 +154,35 @@ namespace Domain.Shipyard
                     components.QuickRemove(index);
                     continue;
                 }
-
                 index++;
             }
         }
 
         private static bool TryInstallComponent(IntegratedComponent component, ShipLayoutModel layout, ComponentTracker tracker, IShipPartsStorage storage = null)
         {
-            if (!layout.IsSuitableLocation(component.X, component.Y, component.Info.Data) ||
-                !tracker.IsCompatible(component.Info.Data))
+            if (!layout.IsSuitableLocation(component.X, component.Y, component.Info.Data) || !tracker.IsCompatible(component.Info.Data))
             {
-                GameDiagnostics.Trace.LogError($"Invalid component {component.Info.Data.Name} at [{component.X},{component.Y}]");
                 storage?.AddComponent(component.Info);
                 return false;
             }
 
             layout.InstallComponent(component.X, component.Y, component.Info,
                 new ComponentSettings(component.KeyBinding, component.Behaviour, component.Locked));
-
             return true;
         }
 
         private static bool HasForbiddenComponents(IList<IntegratedComponent> components)
         {
             if (components == null) return false;
-            for (int i = 0; i < components.Count; ++i)
+            foreach (var item in components)
             {
-                var item = components[i];
-                if (item.Info.Data.Availability == GameDatabase.Enums.Availability.None)
+                if (item.Info.Data.Availability == GameDatabase.Enums.Availability.None || item.Info.Level > 0 ||
+                   (item.Info.Data.Availability == GameDatabase.Enums.Availability.Special && !item.Locked))
                 {
-                    GameDiagnostics.Trace.LogError($"Found a module that isn't available to players: {item.Info.Data.Name}");
-                    return true;
-                }
-
-                if (item.Info.Level > 0)
-                {
-                    GameDiagnostics.Trace.LogError($"Found a module with +{item.Info.Level} upgrade: {item.Info.Data.Name}");
-                    return true;
-                }
-
-                if (item.Info.Data.Availability == GameDatabase.Enums.Availability.Special && !item.Locked)
-                {
-                    GameDiagnostics.Trace.LogError($"Found a special module in the wrong place: {item.Info.Data.Name}");
+                    GameDiagnostics.Trace.LogError($"Forbidden module: {item.Info.Data.Name}");
                     return true;
                 }
             }
-
             return false;
         }
     }
@@ -197,22 +190,10 @@ namespace Domain.Shipyard
     public struct FleetPartsStorage : IShipPartsStorage
     {
         private readonly GameServices.Player.PlayerInventory _inventory;
+        public FleetPartsStorage(GameServices.Player.PlayerInventory inventory) => _inventory = inventory;
 
-        public FleetPartsStorage(GameServices.Player.PlayerInventory inventory)
-        {
-            _inventory = inventory;
-        }
-
-        public void AddComponent(ComponentInfo component)
-        {
-            _inventory.Components.Add(component);
-        }
-
-        public void AddSatellite(Satellite satellite)
-        {
-            _inventory.Satellites.Add(satellite);
-        }
-
+        public void AddComponent(ComponentInfo component) => _inventory.Components.Add(component);
+        public void AddSatellite(Satellite satellite) => _inventory.Satellites.Add(satellite);
         public bool TryGetComponentReplacement(ComponentInfo original, out ComponentInfo replacement)
         {
             replacement = ComponentInfo.Empty;

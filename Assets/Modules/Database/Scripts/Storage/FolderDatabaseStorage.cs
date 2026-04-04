@@ -1,4 +1,5 @@
-﻿using System;
+﻿using GameDatabase.Model;
+using System;
 using System.IO;
 using System.Linq;
 using UnityEngine;
@@ -78,8 +79,19 @@ namespace GameDatabase.Storage
                 else if (fileInfo.Extension.Equals(".json", StringComparison.OrdinalIgnoreCase))
                 {
                     var data = File.ReadAllText(file);
-                    loader.LoadJson(file, data);
-                    itemCount++;
+                    try
+                    {
+                        loader.LoadJson(file, data);
+                        itemCount++;
+                    }
+                    catch (Exception e)
+                    {
+                        // Catch JSON errors and print the exact file name
+                        Debug.LogError($"[JSON ERROR] Failed to parse file: {fileInfo.Name}\nFull Path: {file}\nDetails: {e.Message}");
+
+                        // Rethrow exception so the game knows loading failed
+                        throw new Exception($"JSON parse error in file: {fileInfo.Name}", e);
+                    }
                 }
             }
 
@@ -128,7 +140,7 @@ namespace GameDatabase.Storage
                     try 
                     {
                         var rawData = File.ReadAllBytes(_filename);
-                        _imageData = new(rawData);
+                        _imageData = new ImageData(rawData, System.IO.Path.GetFileName(_filename));
                     }
                     catch (Exception e) 
                     {

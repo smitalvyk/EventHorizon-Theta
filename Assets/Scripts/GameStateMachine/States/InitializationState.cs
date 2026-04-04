@@ -25,17 +25,17 @@ namespace GameStateMachine.States
     {
         [Inject]
         public InitializationState(
-			IStateMachine stateMachine, 
-			GameStateFactory stateFactory,
-            SessionData sessionData, 
-			IDataStorage localStorage, 
-			GameSettings settings, 
-			IAccount account, 
-			IDatabase database, 
+            IStateMachine stateMachine,
+            GameStateFactory stateFactory,
+            SessionData sessionData,
+            IDataStorage localStorage,
+            GameSettings settings,
+            IAccount account,
+            IDatabase database,
             IAdsManager adsManager,
             IMusicPlayer musicPlayer,
             DatabaseMusicPlaylist databaseMusicPlaylist,
-			ILocalization localization)
+            ILocalization localization)
             : base(stateMachine, stateFactory)
         {
             _sessionData = sessionData;
@@ -62,10 +62,10 @@ namespace GameStateMachine.States
 #endif
             QualitySettings.SetQualityLevel(_settings.QualityMode < 0 ? 0 : (_settings.QualityMode > 0 ? 5 : 2));
 
-            Debug.Log (SystemInfo.operatingSystem);
-            Debug.Log (SystemInfo.deviceModel);
-            Debug.Log (SystemInfo.deviceType.ToString ());
-            Debug.Log (SystemInfo.deviceName);
+            Debug.Log(SystemInfo.operatingSystem);
+            Debug.Log(SystemInfo.deviceModel);
+            Debug.Log(SystemInfo.deviceType.ToString());
+            Debug.Log(SystemInfo.deviceName);
 
             _database.LookForMods();
 
@@ -96,53 +96,64 @@ namespace GameStateMachine.States
 
             _localization.Initialize(_settings.Language, _database);
 
-		    if (_database.IsEditable)
-		    {
+            if (_database.IsEditable)
+            {
                 GameDiagnostics.Trace.Log("Checking ship builds...");
-                
-                foreach (var item in _database.ShipBuildList)
-		        {
-                    var ship = new CommonShip(item, _database);
-                    Domain.Shipyard.ShipValidator.RemoveInvalidParts(ship);
-		            if ((item.Ship.ShipType == ShipType.Common || item.Ship.ShipType == ShipType.Drone) && (item.AvailableForPlayer || item.AvailableForEnemy) &&
-		                !ShipValidator.IsShipViable(new CommonShip(item, _database), _database.ShipSettings))
-		            {
-		                GameDiagnostics.Trace.LogError("invalid build: " + item.Id);
-		            }
-		        }
 
-		        var companions = _database.SatelliteBuildList; //Resources.LoadAll<Constructor.CompanionBuildWrapper> ("Prefabs/Constructor/CompanionBuilds");
-		        foreach (var item in companions)
-		        {
-		            var components = item.Components
-		                .Select<InstalledComponent, IntegratedComponent>(ComponentExtensions.FromDatabase).ToArray();
+                foreach (var item in _database.ShipBuildList)
+                {
+                    var ship = new CommonShip(item, _database);
+
+                    string shipName = item.Ship != null ? item.Ship.Name : "UnknownShip";
+                    string contextName = $"{item.Id} | {shipName}";
+
+                    // ИСПРАВЛЕНИЕ: Передаем _database вторым аргументом, null третьим, contextName четвертым
+                    Domain.Shipyard.ShipValidator.RemoveInvalidParts(ship, null, _database, contextName);
+                    if ((item.Ship.ShipType == ShipType.Common || item.Ship.ShipType == ShipType.Drone) && (item.AvailableForPlayer || item.AvailableForEnemy))
+                    {
+                        if (!ShipValidator.IsShipViable(new CommonShip(item, _database), _database.ShipSettings, out string viabilityError))
+                        {
+                            GameDiagnostics.Trace.LogError($"[{contextName}] invalid build: {viabilityError}");
+                        }
+                    }
+                }
+
+                var companions = _database.SatelliteBuildList;
+                foreach (var item in companions)
+                {
+                    var components = item.Components
+                        .Select<InstalledComponent, IntegratedComponent>(ComponentExtensions.FromDatabase).ToArray();
                     var layout = new ShipLayoutObsolete(new ShipLayoutAdapter(item.Satellite.Layout), item.Satellite.Barrels, components);
+
                     if (layout.Components.Count() != components.Length)
-		                GameDiagnostics.Trace.LogError("invalid satellite layout: " + item.Id);
-		        }
+                    {
+                        string satName = item.Satellite != null ? item.Satellite.Name : "UnknownSat";
+                        GameDiagnostics.Trace.LogError($"[{item.Id} ({satName})] invalid satellite layout");
+                    }
+                }
 
                 GameDiagnostics.Trace.Log("Checking techs...");
 
-		        foreach (var tech in _database.TechnologyList)
-		        {
-		            var index = tech.Dependencies.IndexOf(null);
+                foreach (var tech in _database.TechnologyList)
+                {
+                    var index = tech.Dependencies.IndexOf(null);
                     if (index >= 0)
                         GameDiagnostics.Trace.LogError($"{tech.Id}: unknown dependency - {index}");
                 }
-		    }
+            }
 
-		    Debug.Log("InitializationState: signin - " + _settings.SignedIn);
-			if (_settings.SignedIn)
-			{
-				_account.SignIn();
-			}
+            Debug.Log("InitializationState: signin - " + _settings.SignedIn);
+            if (_settings.SignedIn)
+            {
+                _account.SignIn();
+            }
 
-		    if (_localStorage.TryLoad(_sessionData, _database.Id))
-		        Debug.Log("Saved game loaded");
-		    else if (_database.IsEditable && _localStorage.TryImportOriginalSave(_sessionData, _database.Id))
-		        Debug.Log("Original saved game imported");
-		    else
-		        _sessionData.CreateNewGame(_database.Id);
+            if (_localStorage.TryLoad(_sessionData, _database.Id))
+                Debug.Log("Saved game loaded");
+            else if (_database.IsEditable && _localStorage.TryImportOriginalSave(_sessionData, _database.Id))
+                Debug.Log("Original saved game imported");
+            else
+                _sessionData.CreateNewGame(_database.Id);
 
             if (!_sessionData.Purchases.RemoveAds)
                 _adsManager.ShowInterstitial();
@@ -152,16 +163,16 @@ namespace GameStateMachine.States
             LoadStateAdditive(StateFactory.CreateMainMenuState());
         }
 
-		public override IEnumerable<GameScene> RequiredScenes 
-		{
-			get 
-			{
-				yield return GameScene.Loader;
-				yield return GameScene.CommonGui;
-			}
-		}
+        public override IEnumerable<GameScene> RequiredScenes
+        {
+            get
+            {
+                yield return GameScene.Loader;
+                yield return GameScene.CommonGui;
+            }
+        }
 
-		protected override void OnSuspend()
+        protected override void OnSuspend()
         {
         }
 
@@ -179,6 +190,6 @@ namespace GameStateMachine.States
         private readonly ILocalization _localization;
         private readonly DatabaseMusicPlaylist _databaseMusicPlaylist;
 
-        public class Factory : Factory<InitializationState> { }
+        public class Factory : PlaceholderFactory<InitializationState> { }
     }
 }

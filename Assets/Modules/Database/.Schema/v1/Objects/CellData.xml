@@ -1,8 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <data name="CellData" type="struct">
-	<member name="Symbol" type="string" />
-	<member name="Color" type="color" />
-	<member name="Image" type="string" />
-	<member name="EnableCustomShapeHighlight" type="bool" default="false" />
-	<member name="MergeCells" type="bool" default="false" />
+    <member name="Symbol" type="string" />
+    <member name="Color" type="color" default="#00000000" />
+    <member name="Color2" type="color" default="#00000000" />
+    <member name="Color3" type="color" default="#00000000" />
+    <member name="Color4" type="color" default="#00000000" />
+    <member name="Image" type="string" />
+    <member name="EnableCustomShapeHighlight" type="bool" default="false" />
+    <member name="MergeCells" type="bool" default="false" />
+    <member name="AllowedCustomCells" type="string" default="" />    
+    <member name="ShowInShipyard" type="bool" default="true" />
+    <member name="ShipyardPlacementRule" type="string" default="" />
 </data>

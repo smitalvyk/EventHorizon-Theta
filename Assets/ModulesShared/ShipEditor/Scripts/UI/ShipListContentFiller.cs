@@ -15,6 +15,8 @@ namespace ShipEditor.UI
         [Inject] private readonly IResourceLocator _resourceLocator;
         [Inject] private readonly ILocalization _localization;
 
+        [Inject] private readonly GameDatabase.IDatabase _database;
+
         [SerializeField] private ShipItem _itemPrefab;
         [SerializeField] private ShipGroupListItem _groupPrefab;
 
@@ -50,9 +52,15 @@ namespace ShipEditor.UI
                     Parent = null
                 };
 
-                var groupedByModel = sizeGroup.GroupBy(s => s.Model.Id);
+                // === ГЛАВНОЕ ИЗМЕНЕНИЕ ===
+                // Теперь мы группируем корабли не только по ID корпуса, но и по их уникальной фракции!
+                var groupedByModelAndFaction = sizeGroup.GroupBy(s =>
+                {
+                    string factionName = s.Model.Faction != null ? s.Model.Faction.Name : "NoFaction";
+                    return s.Model.Id.ToString() + "_" + factionName;
+                });
 
-                foreach (var modelGroup in groupedByModel)
+                foreach (var modelGroup in groupedByModelAndFaction)
                 {
                     if (modelGroup.Count() == 1)
                     {
@@ -212,7 +220,7 @@ namespace ShipEditor.UI
             {
                 if (obj == null) obj = Instantiate(_itemPrefab.gameObject);
                 var shipItem = obj.GetComponent<ShipItem>();
-                shipItem.Initialize(itemData.Ship, _resourceLocator, _localization);
+                shipItem.Initialize(itemData.Ship, _resourceLocator, _localization, _database);
                 shipItem.gameObject.SetActive(true);
                 return obj;
             }

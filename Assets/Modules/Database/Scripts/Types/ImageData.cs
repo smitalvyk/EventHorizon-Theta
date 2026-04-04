@@ -13,20 +13,21 @@ namespace GameDatabase.Model
 
         public Sprite Sprite { get; }
 
-        public ImageData(byte[] data)
+        public ImageData(byte[] data, string imageName = "Unknown")
         {
             var texture = new Texture2D(2, 2);
+            texture.name = imageName;
 
             if (!texture.LoadImage(data))
             {
-                GameDiagnostics.Trace.LogError("Invalid texture format");
+                GameDiagnostics.Trace.LogError($"Invalid texture format: {imageName}");
                 return;
             }
 
             if (IsPowerOfTwo(texture.width) && IsPowerOfTwo(texture.height))
                 texture.Compress(true);
             else
-                GameDiagnostics.Trace.LogError($"Texture dimensions({texture.width},{texture.height}) are not powers of two. Compression will be disabled. Consider resizing it for improved performance and reduced memory usage.") ;
+                GameDiagnostics.Trace.LogError($"Texture <{imageName}> ({texture.width}x{texture.height}) is NPOT. Compression disabled.");
 
             Sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f), texture.width);
         }

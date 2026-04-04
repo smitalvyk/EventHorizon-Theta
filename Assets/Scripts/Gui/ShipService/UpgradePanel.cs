@@ -81,13 +81,14 @@ namespace Gui.ShipService
                     {
                         if ((object)c != null && !string.IsNullOrEmpty(c.Symbol))
                         {
+                            if (!c.ShowInShipyard) continue;
+
                             CellType customType = (CellType)c.Symbol[0];
                             UnityEngine.Color baseC = c.Color;
 
                             GameObject newToggleGo = Instantiate(_innerBlockToggle.gameObject, _innerBlockToggle.transform.parent);
                             newToggleGo.SetActive(true);
 
-                            // Move to the end of the list and scale down to create margins
                             newToggleGo.transform.SetAsLastSibling();
                             newToggleGo.transform.localScale = new Vector3(0.95f, 0.95f, 1f);
 
@@ -105,7 +106,6 @@ namespace Gui.ShipService
                                 Sprite customSprite = _resourceLocator.GetSprite(c.Image) ?? Resources.Load<Sprite>(c.Image);
                                 if (customSprite != null)
                                 {
-                                    // 1. Base shape
                                     if (rootImage != null)
                                     {
                                         rootImage.sprite = customSprite;
@@ -114,7 +114,6 @@ namespace Gui.ShipService
                                         rootImage.transform.SetAsLastSibling();
                                     }
 
-                                    // 2. Selection highlight (white overlay)
                                     if (checkmarkImage != null)
                                     {
                                         checkmarkImage.sprite = customSprite;
@@ -130,7 +129,6 @@ namespace Gui.ShipService
                                         checkmarkImage.transform.SetAsLastSibling();
                                     }
 
-                                    // 3. Gear icon
                                     if (iconImage != null)
                                     {
                                         iconImage.gameObject.SetActive(true);
@@ -138,7 +136,6 @@ namespace Gui.ShipService
                                         iconImage.transform.SetAsLastSibling();
                                     }
 
-                                    // 4. Shadow mask container
                                     GameObject maskGo = new GameObject("ShadowMask");
                                     maskGo.transform.SetParent(newToggleGo.transform, false);
                                     RectTransform maskRt = maskGo.AddComponent<RectTransform>();
@@ -156,7 +153,6 @@ namespace Gui.ShipService
                                     mask.showMaskGraphic = false;
                                     maskGo.transform.SetAsLastSibling();
 
-                                    // 5. Disabled state shadow (solid square cut by the mask)
                                     if (targetGraphicImage != null)
                                     {
                                         targetGraphicImage.enabled = true;
@@ -174,7 +170,6 @@ namespace Gui.ShipService
                                         newToggle.targetGraphic = targetGraphicImage;
                                     }
 
-                                    // Set transitions: disabled state uses 0.6 alpha shadow
                                     ColorBlock cb = newToggle.colors;
                                     cb.normalColor = new UnityEngine.Color(0f, 0f, 0f, 0f);
                                     cb.highlightedColor = new UnityEngine.Color(1f, 1f, 1f, 0.1f);
@@ -187,7 +182,6 @@ namespace Gui.ShipService
                             }
                             else
                             {
-                                // Vanilla square cell fallback
                                 if (rootImage != null) rootImage.color = baseC;
                                 if (iconImage != null)
                                 {
@@ -198,7 +192,6 @@ namespace Gui.ShipService
                                 if (checkmarkImage != null) checkmarkImage.color = baseC;
                             }
 
-                            // Cleanup unused vanilla layers, preserving the new ShadowMask
                             foreach (var img in newToggleGo.GetComponentsInChildren<Image>(true))
                             {
                                 if (img != rootImage &&
@@ -254,8 +247,7 @@ namespace Gui.ShipService
             var isBlockSelected = _selectedBlockX != _invalidBlock && _selectedBlockY != _invalidBlock;
             if (!isBlockSelected || !_shipInfo.IsShipLevelEnough || !_shipInfo.IsShipyardLevelEnough ||
                 !_shipInfo.Price1.IsEnough(_playerResources) || !_shipInfo.Price2.IsEnough(_playerResources)) return;
-            if (!_ship.Model.LayoutModifications.TryAddCell(_selectedBlockX, _selectedBlockY, _selectedCellType)) return;
-
+            if (!_ship.Model.LayoutModifications.TryAddCell(_selectedBlockX, _selectedBlockY, _selectedCellType, _database)) return;
             _shipInfo.Price1.Withdraw(_playerResources);
             _shipInfo.Price2.Withdraw(_playerResources);
 
@@ -276,7 +268,7 @@ namespace Gui.ShipService
             if (!_shipInfo.CanReset || !_shipInfo.ResetPrice.IsEnough(_playerResources)) return;
 
             _ship.Model.LayoutModifications.Reset();
-            Domain.Shipyard.ShipValidator.RemoveInvalidParts(_ship, new Domain.Shipyard.FleetPartsStorage(_playerInventory));
+            Domain.Shipyard.ShipValidator.RemoveInvalidParts(_ship, new Domain.Shipyard.FleetPartsStorage(_playerInventory), _database);
 
             _shipInfo.ResetPrice.Withdraw(_playerResources);
             _soundPlayer.Play(_buySound);
@@ -323,7 +315,7 @@ namespace Gui.ShipService
 
                 foreach (var kvp in _toggleToCellType)
                 {
-                    kvp.Key.interactable = _ship.Model.LayoutModifications.IsCellValid(_selectedBlockX, _selectedBlockY, kvp.Value);
+                    kvp.Key.interactable = _ship.Model.LayoutModifications.IsCellValid(_selectedBlockX, _selectedBlockY, kvp.Value, _database);
                 }
             }
             else

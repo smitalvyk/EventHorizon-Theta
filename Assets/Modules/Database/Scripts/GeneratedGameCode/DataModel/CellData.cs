@@ -26,18 +26,30 @@ namespace GameDatabase.DataModel
 		{
 			Symbol = serializable.Symbol;
 			Color = new ColorData(serializable.Color);
+			Color2 = new ColorData(serializable.Color2);
+			Color3 = new ColorData(serializable.Color3);
+			Color4 = new ColorData(serializable.Color4);
 			Image = serializable.Image;
 			EnableCustomShapeHighlight = serializable.EnableCustomShapeHighlight;
 			MergeCells = serializable.MergeCells;
+			AllowedCustomCells = serializable.AllowedCustomCells;
+			ShowInShipyard = serializable.ShowInShipyard;
+			ShipyardPlacementRule = serializable.ShipyardPlacementRule;
 
 			OnDataDeserialized(serializable, loader);
 		}
 
 		public string Symbol { get; private set; }
 		public ColorData Color { get; private set; }
+		public ColorData Color2 { get; private set; }
+		public ColorData Color3 { get; private set; }
+		public ColorData Color4 { get; private set; }
 		public string Image { get; private set; }
 		public bool EnableCustomShapeHighlight { get; private set; }
 		public bool MergeCells { get; private set; }
+		public string AllowedCustomCells { get; private set; }
+		public bool ShowInShipyard { get; private set; }
+		public string ShipyardPlacementRule { get; private set; }
 
 		public static CellData DefaultValue { get; private set; }= new(new(), null);
 	}

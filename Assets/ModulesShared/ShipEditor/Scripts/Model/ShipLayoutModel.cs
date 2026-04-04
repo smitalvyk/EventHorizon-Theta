@@ -16,6 +16,7 @@ namespace ShipEditor.Model
         Barrel Barrel(int x, int y);
         bool TryGetComponentAt(int x, int y, out IComponentModel component);
         bool IsCellCompatible(int x, int y, Component component);
+        GameDatabase.IDatabase Database { get; set; }
     }
 
     public class ShipLayoutModel : IShipLayoutModel
@@ -28,8 +29,14 @@ namespace ShipEditor.Model
         private readonly ShipElementType _elementType;
         private readonly IShipLayout _layout;
 
-        public bool DataChanged { get; set; }
+        private static GameDatabase.IDatabase _globalDatabase;
+        public GameDatabase.IDatabase Database
+        {
+            get => _globalDatabase;
+            set { if (value != null) _globalDatabase = value; }
+        }
 
+        public bool DataChanged { get; set; }
         public ref readonly LayoutRect Rect => ref _layout.Rect;
         public int OriginalSize => _layout.Size;
 
@@ -41,11 +48,14 @@ namespace ShipEditor.Model
             return cellType;
         }
 
+        // Detects if the cell belongs to the custom generator set (A-Z) rather than stock game types
         private bool IsCustomCell(CellType cell)
         {
             int c = (int)cell;
-            return c != 0 && c != '1' && c != '2' && c != '3' && c != '4' && c != '5' &&
-                   c != 'W' && c != 'E' && c != 'w' && c != 'e';
+            if (c >= 0 && c <= 5) return false;
+            if (c == '1' || c == '2' || c == '3' || c == '4' || c == '5') return false;
+            if (c == 'W' || c == 'E' || c == 'w' || c == 'e') return false;
+            return true;
         }
 
         public IReadOnlyList<IComponentModel> Components => _components;
@@ -56,43 +66,39 @@ namespace ShipEditor.Model
             return id >= 0 ? _barrels[id] : null;
         }
 
-        public ShipLayoutModel(ShipElementType elementType, IShipLayout layout, ImmutableCollection<Barrel> barrels, IComponentTracker tracker)
+        public ShipLayoutModel(ShipElementType elementType, IShipLayout layout, ImmutableCollection<Barrel> barrels, IComponentTracker tracker, GameDatabase.IDatabase database = null)
         {
             _layout = layout;
             _barrels = barrels;
             _barrelMap.Build(layout, barrels.Count);
-
             _tracker = tracker;
             _elementType = elementType;
+            Database = database;
         }
 
         public bool TryGetComponentAt(int x, int y, out IComponentModel component) => _filledCells.TryGetValue(CellIndex.FromXY(x, y), out component);
+
         public int GetBarrelId(IComponentModel component) => GetBarrelId(component.X, component.Y, component.Data.Layout);
 
         public IComponentModel FindComponent(int x, int y, ComponentInfo info)
         {
             foreach (var item in _components)
-                if (item.X == x && item.Y == y && item.Info == info)
-                    return item;
+                if (item.X == x && item.Y == y && item.Info == info) return item;
             return null;
         }
 
         public bool HasComponent(IComponentModel component)
         {
             var id = component.Id;
-            if (id < 0 || id >= _components.Count) return false;
-            return _components[id] == component;
+            return id >= 0 && id < _components.Count && _components[id] == component;
         }
 
         public void RemoveAll(bool keepLocked = true)
         {
             if (!keepLocked)
             {
-                foreach (var item in _components)
-                    _tracker.OnComponentRemoved(item.Data);
-
-                _components.Clear();
-                _filledCells.Clear();
+                foreach (var item in _components) _tracker.OnComponentRemoved(item.Data);
+                _components.Clear(); _filledCells.Clear();
                 DataChanged = true;
                 return;
             }
@@ -100,36 +106,24 @@ namespace ShipEditor.Model
             int i = 0;
             while (i < _components.Count)
             {
-                var component = _components[i];
-                if (component.Locked)
-                {
-                    i++;
-                    continue;
-                }
-
-                RemoveComponent(component);
+                if (_components[i].Locked) i++;
+                else RemoveComponent(_components[i]);
             }
         }
 
         public void UpdateComponent(IComponentModel component, ComponentSettings settings)
         {
-            if (!HasComponent(component))
-                throw new System.InvalidOperationException();
-
-            var model = _components[component.Id];
-            model.Settings = settings;
-
+            if (!HasComponent(component)) throw new System.InvalidOperationException();
+            _components[component.Id].Settings = settings;
             DataChanged = true;
             _tracker.OnKeyBindingChanged(component.Data, settings.KeyBinding);
         }
 
         public void RemoveComponent(IComponentModel component)
         {
-            if (!HasComponent(component))
-                throw new System.InvalidOperationException();
+            if (!HasComponent(component)) throw new System.InvalidOperationException();
 
             ClearCells(component.X, component.Y, component.Data.Layout);
-
             var id = component.Id;
             int lastId = _components.Count - 1;
             if (id != lastId)
@@ -147,9 +141,8 @@ namespace ShipEditor.Model
         public IComponentModel InstallComponent(int x, int y, ComponentInfo component, ComponentSettings settings)
         {
             var id = _components.Count;
-            var layout = component.Data.Layout;
             var model = new ComponentModel(id, x, y, component, settings, _elementType);
-            FillCells(x, y, layout, model);
+            FillCells(x, y, component.Data.Layout, model);
             _components.Add(model);
             _tracker.OnComponentAdded(component.Data);
             _tracker.OnKeyBindingChanged(component.Data, settings.KeyBinding);
@@ -157,16 +150,28 @@ namespace ShipEditor.Model
             return model;
         }
 
+        // Checks if placement is allowed by database rules for custom cell types
+        private bool IsAllowedByCellSettings(CellType shipCell, CellType componentCell)
+        {
+            if (Database?.CellSettings == null) return false;
+
+            foreach (var cellData in Database.CellSettings.Cells)
+            {
+                if (!string.IsNullOrEmpty(cellData.Symbol) && cellData.Symbol[0] == (char)shipCell)
+                {
+                    if (!string.IsNullOrEmpty(cellData.AllowedCustomCells) && cellData.AllowedCustomCells.Contains((char)componentCell))
+                        return true;
+                }
+            }
+            return false;
+        }
+
         public bool IsCellCompatible(int x, int y, Component component)
         {
-            if (!_layout.Rect.IsInsideRect(x, y))
-                return false;
-
-            var index = CellIndex.FromXY(x, y);
-            if (_filledCells.ContainsKey(index))
-                return false;
+            if (!_layout.Rect.IsInsideRect(x, y) || _filledCells.ContainsKey(CellIndex.FromXY(x, y))) return false;
 
             var cellType = Cell(x, y);
+            bool isAllowed = IsAllowedByCellSettings(cellType, component.CellType);
 
             if (IsCustomCell(cellType))
             {
@@ -174,15 +179,15 @@ namespace ShipEditor.Model
                 var layout = component.Layout;
                 for (int i = 0; i < layout.Size; ++i)
                     for (int j = 0; j < layout.Size; ++j)
-                        if ((CellType)layout[j, i] == cellType)
-                            hasMatchingCell = true;
-
-                if (!hasMatchingCell) return false;
+                    {
+                        CellType c = (CellType)layout[j, i];
+                        if (c == cellType || IsAllowedByCellSettings(cellType, c)) hasMatchingCell = true;
+                    }
+                if (!hasMatchingCell && !isAllowed) return false;
             }
             else
             {
-                bool isCompPureCustom = true;
-                bool hasAnyCell = false;
+                bool isCompPureCustom = true, hasAnyCell = false;
                 var layout = component.Layout;
                 for (int i = 0; i < layout.Size; ++i)
                     for (int j = 0; j < layout.Size; ++j)
@@ -194,51 +199,40 @@ namespace ShipEditor.Model
                             if (!IsCustomCell(c)) isCompPureCustom = false;
                         }
                     }
-
-                if (hasAnyCell && isCompPureCustom) return false;
+                if (hasAnyCell && isCompPureCustom && !isAllowed) return false;
             }
 
             if (cellType == CellType.Weapon && component.CellType == CellType.Weapon)
             {
-                var requiredSlot = component.WeaponSlotType;
-                if (requiredSlot == default) return true;
-
-                var barrelId = _barrelMap[x, y];
+                if (component.WeaponSlotType == default) return true;
+                int barrelId = _barrelMap[x, y];
                 if (barrelId < 0) return false;
-                var barrel = _barrels[barrelId];
-                return string.IsNullOrEmpty(barrel.WeaponClass) || barrel.WeaponClass.Contains(requiredSlot);
+                return string.IsNullOrEmpty(_barrels[barrelId].WeaponClass) || _barrels[barrelId].WeaponClass.Contains(component.WeaponSlotType);
             }
 
-            return component.CellType.CompatibleWith(cellType);
+            return isAllowed || component.CellType.CompatibleWith(cellType);
         }
 
         public bool IsSuitableLocation(int x, int y, Component component)
         {
             var layout = component.Layout;
-
             for (int i = 0; i < layout.Size; ++i)
             {
                 for (int j = 0; j < layout.Size; ++j)
                 {
                     CellType compCell = (CellType)layout[j, i];
                     if (compCell == CellType.Empty) continue;
-
                     if (!_layout.Rect.IsInsideRect(x + j, y + i)) return false;
 
                     CellType shipCell = Cell(x + j, y + i);
 
-                    bool isShipCustom = IsCustomCell(shipCell);
-                    bool isCompCustom = IsCustomCell(compCell);
-
-                    if (isShipCustom || isCompCustom)
-                    {
-                        if (shipCell != compCell) return false;
-                    }
+                    // Cross-check custom compatibility rules
+                    if ((IsCustomCell(shipCell) || IsCustomCell(compCell)) && !IsAllowedByCellSettings(shipCell, compCell) && shipCell != compCell)
+                        return false;
 
                     if (!IsCellCompatible(x + j, y + i, component)) return false;
                 }
             }
-
             return true;
         }
 
@@ -262,9 +256,7 @@ namespace ShipEditor.Model
         {
             for (int i = 0; i < layout.Size; ++i)
                 for (int j = 0; j < layout.Size; ++j)
-                    if ((CellType)layout[j, i] != CellType.Empty)
-                        return _barrelMap[x + j, y + i];
-
+                    if ((CellType)layout[j, i] != CellType.Empty) return _barrelMap[x + j, y + i];
             return -1;
         }
     }
