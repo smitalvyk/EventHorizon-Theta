@@ -1,8 +1,12 @@
-using Constructor.Model;
-using GameDatabase.Enums;
+using System;
+using System.Linq;
 using System.Collections.Generic;
+using GameDatabase.DataModel;
+using GameDatabase.Enums;
+using GameDatabase.Model;
 using UnityEngine;
 using Zenject;
+using Constructor.Model;
 
 namespace ShipEditor
 {
@@ -54,6 +58,7 @@ namespace ShipEditor
             _cellSize = cellSize;
             _shipLayout = layout;
             _selection.SetMesh(null);
+            if (_shipLayout != null) _shipLayout.Database = _database;
 
             GenerateMesh();
             GenerateModules();
@@ -179,7 +184,10 @@ namespace ShipEditor
                 {
                     if (!string.IsNullOrEmpty(cellData.Symbol) && !string.IsNullOrEmpty(cellData.Image))
                     {
-                        Sprite s = Resources.Load<Sprite>(cellData.Image);
+                        // Strip file extensions to safely load via Resources
+                        string cleanName = cellData.Image.Replace(".png", "").Replace(".jpg", "");
+                        Sprite s = Resources.Load<Sprite>(cleanName);
+
                         if (s != null && s.texture != null)
                         {
                             if (!texturesToPack.Contains(s.texture))
@@ -237,12 +245,15 @@ namespace ShipEditor
                                 uvRect = rects[texIndex];
                             }
 
-                            Color finalColor = cellData.Color;
-                            if (finalColor.a == 0f) finalColor = Color.white;
+                            Color c1 = cellData.Color;
+                            if (c1.a == 0f) c1 = Color.white;
 
                             builder.CustomCells[cellChar] = new ShipMeshBuilder.CustomCellInfo
                             {
-                                Color = finalColor,
+                                Color1 = c1,
+                                Color2 = cellData.Color2,
+                                Color3 = cellData.Color3,
+                                Color4 = cellData.Color4,
                                 UVRect = uvRect,
                                 MergeCells = cellData.MergeCells
                             };
@@ -250,14 +261,11 @@ namespace ShipEditor
                             _customUVs[cellChar] = uvRect;
 
                             if (cellData.EnableCustomShapeHighlight)
-                            {
                                 _highlightEnabledCells.Add(cellChar);
-                            }
                         }
                     }
                 }
             }
-
             else
             {
                 MeshRenderer selectionRenderer = _selection.GetComponent<MeshRenderer>();
@@ -275,14 +283,15 @@ namespace ShipEditor
                         if (!string.IsNullOrEmpty(cellData.Symbol))
                         {
                             int cellChar = cellData.Symbol[0];
-
-
-                            Color finalColor = cellData.Color;
-                            if (finalColor.a == 0f) finalColor = Color.white;
+                            Color c1 = cellData.Color;
+                            if (c1.a == 0f) c1 = Color.white;
 
                             builder.CustomCells[cellChar] = new ShipMeshBuilder.CustomCellInfo
                             {
-                                Color = finalColor,
+                                Color1 = c1,
+                                Color2 = cellData.Color2,
+                                Color3 = cellData.Color3,
+                                Color4 = cellData.Color4,
                                 UVRect = builder.DefaultUVRect,
                                 MergeCells = cellData.MergeCells
                             };
@@ -290,9 +299,7 @@ namespace ShipEditor
                             _customUVs[cellChar] = builder.DefaultUVRect;
 
                             if (cellData.EnableCustomShapeHighlight)
-                            {
                                 _highlightEnabledCells.Add(cellChar);
-                            }
                         }
                     }
                 }
@@ -301,12 +308,13 @@ namespace ShipEditor
             builder.Build(new LayoutAdapter(_shipLayout));
             _body.SetMesh(builder.CreateMesh());
         }
+
         private void GenerateLockedCells()
         {
             _lockedCells.SetMesh(null);
             if (_shipLayout == null) return;
 
-            _lockedCellBuilder = new(_cellSize, _shipLayout.Rect.xMin, _shipLayout.Rect.yMin, _lockSize);
+            _lockedCellBuilder = new LockedCellsMeshBuilder(_cellSize, _shipLayout.Rect.xMin, _shipLayout.Rect.yMin, _lockSize);
             _lockedCellBuilder.Color = _lockedCellColor;
 
             foreach (var item in _shipLayout.Components)

@@ -9,7 +9,7 @@ namespace ViewModel
 
 		private void Start()
 		{
-    		_versionText.text = AppConfig.version + " (build " + AppConfig.buildNumber + ")";
+    		_versionText.text = "Theta - " + AppConfig.version + "(build " + AppConfig.buildNumber + ")";
 		}
 	}
 }

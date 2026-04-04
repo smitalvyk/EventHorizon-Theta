@@ -16,7 +16,10 @@ namespace ShipEditor
 
         public struct CustomCellInfo
         {
-            public Color Color;
+            public Color Color1;
+            public Color Color2;
+            public Color Color3;
+            public Color Color4;
             public Rect UVRect;
             public bool MergeCells;
         }
@@ -101,12 +104,12 @@ namespace ShipEditor
                                 for (int dx = 0; dx < maxSize; dx++)
                                     visited[localX + dx, localY + dy] = true;
 
-                            AddCustomColorCellMerged(localX, localY, maxSize, customInfo.Color, customInfo.UVRect);
+                            AddCustomShapeCell(localX, localY, maxSize, customInfo);
                         }
                         else
                         {
                             visited[localX, localY] = true;
-                            AddCustomColorCellMerged(localX, localY, 1, customInfo.Color, customInfo.UVRect);
+                            AddCustomShapeCell(localX, localY, 1, customInfo);
                         }
                     }
                     else if (IsValidCell(cellType))
@@ -125,21 +128,103 @@ namespace ShipEditor
             }
         }
 
-        private void AddCustomColorCellMerged(int x, int y, int size, Color32 color, Rect uvRect)
+        // Draw shape based on the amount of valid colors provided
+        private void AddCustomShapeCell(int x, int y, int size, CustomCellInfo info)
         {
-            var v1 = GetCustomVertexEx(x, y, color, new Vector2(uvRect.xMin, uvRect.yMax));
-            var v2 = GetCustomVertexEx(x + size, y, color, new Vector2(uvRect.xMax, uvRect.yMax));
-            var v3 = GetCustomVertexEx(x + size, y + size, color, new Vector2(uvRect.xMax, uvRect.yMin));
-            var v4 = GetCustomVertexEx(x, y + size, color, new Vector2(uvRect.xMin, uvRect.yMin));
+            float xMin = x * _cellSize;
+            float xMax = (x + size) * _cellSize;
+            float yMin = -y * _cellSize;
+            float yMax = -(y + size) * _cellSize;
+            float xMid = (xMin + xMax) / 2f;
+            float yMid = (yMin + yMax) / 2f;
 
-            _triangles.Add(v1); _triangles.Add(v2); _triangles.Add(v3);
-            _triangles.Add(v3); _triangles.Add(v4); _triangles.Add(v1);
+            float uMin = info.UVRect.xMin;
+            float uMax = info.UVRect.xMax;
+            float vMin = info.UVRect.yMin;
+            float vMax = info.UVRect.yMax;
+            float uMid = (uMin + uMax) / 2f;
+            float vMid = (vMin + vMax) / 2f;
+
+            Color c1 = info.Color1;
+            Color c2 = info.Color2;
+            Color c3 = info.Color3;
+            Color c4 = info.Color4;
+
+            // Ignore default transparent/black database colors
+            bool hasC2 = (c2.r > 0f || c2.g > 0f || c2.b > 0f) && c2.a > 0f;
+            bool hasC3 = (c3.r > 0f || c3.g > 0f || c3.b > 0f) && c3.a > 0f;
+            bool hasC4 = (c4.r > 0f || c4.g > 0f || c4.b > 0f) && c4.a > 0f;
+
+            int colorCount = 1;
+            if (hasC2) colorCount = 2;
+            if (hasC2 && hasC3) colorCount = 3;
+            if (hasC2 && hasC3 && hasC4) colorCount = 4;
+
+            if (colorCount == 1)
+            {
+                // 1 Color: Solid square
+                var vTL = GetCustomVertexRaw(xMin, yMin, c1, new Vector2(uMin, vMax));
+                var vTR = GetCustomVertexRaw(xMax, yMin, c1, new Vector2(uMax, vMax));
+                var vBR = GetCustomVertexRaw(xMax, yMax, c1, new Vector2(uMax, vMin));
+                var vBL = GetCustomVertexRaw(xMin, yMax, c1, new Vector2(uMin, vMin));
+
+                _triangles.Add(vTL); _triangles.Add(vTR); _triangles.Add(vBR);
+                _triangles.Add(vBR); _triangles.Add(vBL); _triangles.Add(vTL);
+            }
+            else if (colorCount == 2)
+            {
+                // 2 Colors: Diagonal split (Bottom-Left to Top-Right)
+
+                // Top-Left triangle
+                var t1_vTL = GetCustomVertexRaw(xMin, yMin, c1, new Vector2(uMin, vMax));
+                var t1_vTR = GetCustomVertexRaw(xMax, yMin, c1, new Vector2(uMax, vMax));
+                var t1_vBL = GetCustomVertexRaw(xMin, yMax, c1, new Vector2(uMin, vMin));
+                _triangles.Add(t1_vTL); _triangles.Add(t1_vTR); _triangles.Add(t1_vBL);
+
+                // Bottom-Right triangle
+                var t2_vTR = GetCustomVertexRaw(xMax, yMin, c2, new Vector2(uMax, vMax));
+                var t2_vBR = GetCustomVertexRaw(xMax, yMax, c2, new Vector2(uMax, vMin));
+                var t2_vBL = GetCustomVertexRaw(xMin, yMax, c2, new Vector2(uMin, vMin));
+                _triangles.Add(t2_vTR); _triangles.Add(t2_vBR); _triangles.Add(t2_vBL);
+            }
+            else
+            {
+                // 3 or 4 Colors: Envelope (4 triangles from center)
+                Color topC = c1;
+                Color rightC = c2;
+                Color bottomC = c3;
+                Color leftC = colorCount == 4 ? c4 : c1; // Duplicate top color if only 3 are provided
+
+                // Top sector
+                var t1_v1 = GetCustomVertexRaw(xMin, yMin, topC, new Vector2(uMin, vMax));
+                var t1_v2 = GetCustomVertexRaw(xMax, yMin, topC, new Vector2(uMax, vMax));
+                var t1_vc = GetCustomVertexRaw(xMid, yMid, topC, new Vector2(uMid, vMid));
+                _triangles.Add(t1_v1); _triangles.Add(t1_v2); _triangles.Add(t1_vc);
+
+                // Right sector
+                var t2_v1 = GetCustomVertexRaw(xMax, yMin, rightC, new Vector2(uMax, vMax));
+                var t2_v2 = GetCustomVertexRaw(xMax, yMax, rightC, new Vector2(uMax, vMin));
+                var t2_vc = GetCustomVertexRaw(xMid, yMid, rightC, new Vector2(uMid, vMid));
+                _triangles.Add(t2_v1); _triangles.Add(t2_v2); _triangles.Add(t2_vc);
+
+                // Bottom sector
+                var t3_v1 = GetCustomVertexRaw(xMax, yMax, bottomC, new Vector2(uMax, vMin));
+                var t3_v2 = GetCustomVertexRaw(xMin, yMax, bottomC, new Vector2(uMin, vMin));
+                var t3_vc = GetCustomVertexRaw(xMid, yMid, bottomC, new Vector2(uMid, vMid));
+                _triangles.Add(t3_v1); _triangles.Add(t3_v2); _triangles.Add(t3_vc);
+
+                // Left sector
+                var t4_v1 = GetCustomVertexRaw(xMin, yMax, leftC, new Vector2(uMin, vMin));
+                var t4_v2 = GetCustomVertexRaw(xMin, yMin, leftC, new Vector2(uMin, vMax));
+                var t4_vc = GetCustomVertexRaw(xMid, yMid, leftC, new Vector2(uMid, vMid));
+                _triangles.Add(t4_v1); _triangles.Add(t4_v2); _triangles.Add(t4_vc);
+            }
         }
 
-        private int GetCustomVertexEx(int x, int y, Color32 color, Vector2 uv)
+        private int GetCustomVertexRaw(float posX, float posY, Color color, Vector2 uv)
         {
             var id = _vertices.Count;
-            _vertices.Add(new Vector3(x * _cellSize, -y * _cellSize, 0));
+            _vertices.Add(new Vector3(posX, posY, 0));
             _uv.Add(uv);
             _colors.Add(color);
             return id;

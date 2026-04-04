@@ -16,9 +16,15 @@ namespace GameDatabase.Serializable
 	public class CellDataSerializable
 	{
 		public string Symbol;
-		public string Color;
+		public string Color = "#00000000";
+		public string Color2 = "#00000000";
+		public string Color3 = "#00000000";
+		public string Color4 = "#00000000";
 		public string Image;
 		public bool EnableCustomShapeHighlight = false;
 		public bool MergeCells = false;
+		public string AllowedCustomCells;
+		public bool ShowInShipyard = true;
+		public string ShipyardPlacementRule;
 	}
 }

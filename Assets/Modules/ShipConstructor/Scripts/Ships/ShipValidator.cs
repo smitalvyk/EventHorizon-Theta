@@ -27,12 +27,17 @@ namespace Constructor.Ships
             return true;
         }
 
-        public static bool IsShipViable(IShip ship, ShipSettings settings)
+        public static bool IsShipViable(IShip ship, ShipSettings settings, out string errorReason)
         {
+            errorReason = string.Empty;
             var spec = ship.CreateBuilder().Build(settings);
             var stats = spec.Stats;
+
             if (stats.EnergyRechargeRate <= 0)
+            {
+                errorReason = "No energy generation.";
                 return false;
+            }
 
             var weaponCount = 0;
             foreach (var platform in spec.Platforms)
@@ -40,31 +45,35 @@ namespace Constructor.Ships
                 foreach (var item in platform.WeaponsObsolete)
                 {
                     if (item.Ammunition.EnergyCost > stats.EnergyPoints)
+                    {
+                        errorReason = $"Weapon energy cost ({item.Ammunition.EnergyCost}) > max ship capacity ({stats.EnergyPoints}).";
                         return false;
+                    }
                     weaponCount++;
                 }
 
                 foreach (var item in platform.Weapons)
                 {
                     if (item.Ammunition.Body.EnergyCost > stats.EnergyPoints)
+                    {
+                        errorReason = $"Weapon energy cost ({item.Ammunition.Body.EnergyCost}) > max ship capacity ({stats.EnergyPoints}).";
                         return false;
+                    }
                     weaponCount++;
                 }
             }
 
             if (weaponCount == 0 && !spec.DroneBays.Any())
+            {
+                errorReason = "No Weapons & DroneBays.";
                 return false;
+            }
 
             return true;
         }
 
         public static bool IsAllowedOnArena(IShip ship, ShipSettings settings)
         {
-//#if UNITY_EDITOR
-//            if (ship.Id == LegacyShipNames.GetId("MyInvader"))
-//                return true;
-//#endif
-
             if (!IsAvailableForPlayer(ship))
                 return false;
 
@@ -79,7 +88,7 @@ namespace Constructor.Ships
                 if (ship.SecondSatellite.Components.Any(item => IsForbiddenOnArena(ship, item)))
                     return false;
             
-            return IsShipViable(ship, settings);
+            return IsShipViable(ship, settings, out _);
         }
 
         private static bool IsForbiddenOnArena(IShip ship, IntegratedComponent component)

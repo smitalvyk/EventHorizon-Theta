@@ -9,6 +9,8 @@ Material:
   m_PrefabAsset: {fileID: 0}
   m_Name: Planet_Barren
   m_Shader: {fileID: 4800000, guid: f4cc9495af3597f4db9a0d41b3f5b2e3, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
   m_InvalidKeywords: []
   m_LightmapFlags: 5
@@ -17,6 +19,7 @@ Material:
   m_CustomRenderQueue: -1
   stringTagMap: {}
   disabledShaderPasses: []
+  m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
@@ -35,7 +38,7 @@ Material:
     - _MainTex:
         m_Texture: {fileID: 2800000, guid: d1fef49a1272b9a4da20c4463beadd38, type: 3}
         m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0.22404361, y: 0.6307931}
+        m_Offset: {x: 0.9692814, y: 0.9800511}
     - _MainTex2:
         m_Texture: {fileID: 2800000, guid: d1fef49a1272b9a4da20c4463beadd38, type: 3}
         m_Scale: {x: 1, y: 1}
@@ -46,5 +49,5 @@ Material:
     - _NebulaMultiplier: 1
     m_Colors:
     - <noninit>: {r: 0, g: 2.0185626, b: 1e-45, a: -7.576944e+11}
-    - _Color: {r: 0.37353763, g: 0.6100916, b: 0.5218397, a: 1}
+    - _Color: {r: 0.6031316, g: 0.631872, b: 0.5671903, a: 1}
   m_BuildTextureStacks: []
