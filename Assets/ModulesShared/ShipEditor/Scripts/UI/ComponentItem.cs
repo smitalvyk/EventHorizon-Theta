@@ -201,7 +201,7 @@ namespace ShipEditor.UI
             float baseCellSize = 48f;
             float cellSizeValue = baseCellSize;
 
-            if (maxDimension > 4)
+            if (maxDimension > 3)
             {
                 cellSizeValue -= (maxDimension - 1) * 4f;
             }

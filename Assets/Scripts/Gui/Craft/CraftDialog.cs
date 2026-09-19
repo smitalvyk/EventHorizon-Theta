@@ -96,7 +96,6 @@ namespace Gui.Craft
         [Header("Back Button Icon")]
         [SerializeField] private Sprite _backButtonIcon;
 
-        // Dynamic category navigation fields.
         private ScrollRect _scrollRect;
         private RectTransform _itemsContent;
         private RectTransform _categoryContent;
@@ -124,7 +123,6 @@ namespace Gui.Craft
             UpdateTechPanel();
         }
 
-        // Open details window displaying stats for the selected item.
         public void InfoButtonClicked()
         {
             if (_selectedTech == null)
@@ -132,11 +130,9 @@ namespace Gui.Craft
 
             _soundPlayer.Play(_buySound);
 
-            // 1. Try finding IProduct directly in craft panels.
             var product = ExtractProductFromObject(_commonCraftPanel) ??
                           ExtractProductFromObject(_improvedCraftPanel);
 
-            // 2. Resolve actual item type (ComponentItem, ShipItem, SatelliteItem) with stats.
             if (product == null)
             {
                 var itemType = ResolveActualItemType(_selectedTech);
@@ -146,7 +142,6 @@ namespace Gui.Craft
                 }
             }
 
-            // 3. Display the item info window.
             if (product != null)
             {
                 _helper.ShowItemInfoWindow(product);
@@ -187,7 +182,7 @@ namespace Gui.Craft
             _techsIcon.color = color;
             _levelText.text = _level.ToString();
 
-            // Collect all researched technologies.
+            // Collect researched technologies (preserve DB order, keep Free Stars at bottom)
             IEnumerable<ITechnology> techs = _technologies.All.ForWorkshop(_faction).Where(_research.IsTechResearched);
 
             if (!IsFreeStarsBase() && _freeStarsFaction != null)
@@ -196,14 +191,14 @@ namespace Gui.Craft
                 techs = techs.Concat(freeTechs).Distinct();
             }
 
-            // Group technologies by category.
             _categorizedTechs = techs
                 .GroupBy(GetTechCategory)
-                .ToDictionary(g => g.Key, g => g.OrderBy(GetTechName).ToList());
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.OrderBy(t => IsFreeStars(t.Faction) ? 1 : 0).ToList()
+                );
 
             UpdateResources();
-
-            // Open in categories root view.
             ShowCategoriesView();
         }
 
@@ -291,8 +286,13 @@ namespace Gui.Craft
                 catCard.name = $"Category_{category}";
                 catCard.SetActive(true);
 
+                // Remove Focus highlight object completely so it never activates on categories
+                var focus = catCard.transform.Find("Focus");
+                if (focus != null)
+                    DestroyImmediate(focus.gameObject);
+
                 var vm = catCard.GetComponent<ViewModel.CraftListItem>();
-                if (vm != null) Destroy(vm);
+                if (vm != null) DestroyImmediate(vm);
 
                 var toggle = catCard.GetComponent<Toggle>();
                 if (toggle != null) DestroyImmediate(toggle);
@@ -302,7 +302,6 @@ namespace Gui.Craft
                 btn.onClick.RemoveAllListeners();
                 btn.onClick.AddListener(() => ShowCategoryItemsView(targetCat));
 
-                // Populate localized labels and clean up extra template texts.
                 var texts = catCard.GetComponentsInChildren<Text>(true);
                 for (int i = 0; i < texts.Length; i++)
                 {
@@ -323,7 +322,6 @@ namespace Gui.Craft
                     }
                 }
 
-                // Apply themed button icon styling.
                 var icon = GetItemIcon(catCard);
                 if (icon != null)
                 {
@@ -343,7 +341,6 @@ namespace Gui.Craft
             if (_scrollRect == null || _itemsContent == null)
                 return;
 
-            // Fix parent List layout so it never forces 50% split on children.
             if (_scrollRect.transform.parent != null)
             {
                 var listLayout = _scrollRect.transform.parent.GetComponent<VerticalLayoutGroup>();
@@ -354,7 +351,6 @@ namespace Gui.Craft
                 }
             }
 
-            // Measure single item height from the template.
             var template = _itemsContent.childCount > 0 ? _itemsContent.GetChild(0).gameObject : null;
             if (template != null)
             {
@@ -367,7 +363,6 @@ namespace Gui.Craft
                     _singleItemHeight = tle.preferredHeight;
             }
 
-            // 1. Create Category Content container inside the ScrollRect.
             var catGo = new GameObject("CategoryContent", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
             catGo.transform.SetParent(_scrollRect.viewport != null ? _scrollRect.viewport : _scrollRect.transform, false);
             _categoryContent = catGo.GetComponent<RectTransform>();
@@ -386,15 +381,18 @@ namespace Gui.Craft
             var csf = catGo.GetComponent<ContentSizeFitter>();
             csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            // 2. Create Back Button above ScrollRect strictly constrained to one item height.
             if (template != null && _scrollRect.transform.parent != null)
             {
                 _backButton = Instantiate(template, _scrollRect.transform.parent);
                 _backButton.name = "BackButton";
                 _backButton.transform.SetSiblingIndex(_scrollRect.transform.GetSiblingIndex());
 
+                var backFocus = _backButton.transform.Find("Focus");
+                if (backFocus != null)
+                    DestroyImmediate(backFocus.gameObject);
+
                 var vm = _backButton.GetComponent<ViewModel.CraftListItem>();
-                if (vm != null) Destroy(vm);
+                if (vm != null) DestroyImmediate(vm);
 
                 var toggle = _backButton.GetComponent<Toggle>();
                 if (toggle != null) DestroyImmediate(toggle);
@@ -427,6 +425,10 @@ namespace Gui.Craft
         {
             if (_backButton == null) return;
 
+            var backFocus = _backButton.transform.Find("Focus");
+            if (backFocus != null)
+                DestroyImmediate(backFocus.gameObject);
+
             var le = _backButton.GetComponent<LayoutElement>();
             if (le != null)
             {
@@ -441,7 +443,6 @@ namespace Gui.Craft
                 backRect.sizeDelta = new Vector2(backRect.sizeDelta.x, _singleItemHeight);
             }
 
-            // Populate localized labels on back button.
             var texts = _backButton.GetComponentsInChildren<Text>(true);
             for (int i = 0; i < texts.Length; i++)
             {
@@ -462,7 +463,6 @@ namespace Gui.Craft
                 }
             }
 
-            // Apply button icon style matching the UI theme.
             var icon = GetItemIcon(_backButton);
             if (icon != null)
             {
@@ -545,7 +545,6 @@ namespace Gui.Craft
             }
         }
 
-        // Return localized category name matching the game's XML dictionary.
         private string GetCategoryTitle(TechCategory category)
         {
             switch (category)
@@ -572,6 +571,65 @@ namespace Gui.Craft
         private void UpdateTechnology(ViewModel.CraftListItem item, ITechnology tech)
         {
             item.InitializeForCraft(tech, _level);
+
+            // Display ship class strictly on a new line
+            if (_currentCategory == TechCategory.Ship || GetTechCategory(tech) == TechCategory.Ship)
+            {
+                string shipClassName = GetShipClassName(tech);
+                if (!string.IsNullOrEmpty(shipClassName))
+                {
+                    var texts = item.GetComponentsInChildren<Text>(true);
+                    if (texts.Length > 1 && texts[1] != null)
+                    {
+                        texts[1].verticalOverflow = VerticalWrapMode.Overflow;
+                        string shipLabel = _localization.GetString("$Ship");
+                        if (string.IsNullOrEmpty(shipLabel) || shipLabel.StartsWith("$"))
+                            shipLabel = "КОРАБЛЬ";
+
+                        texts[1].text = $"{shipLabel}\n{shipClassName.ToUpper()}";
+                    }
+                }
+            }
+        }
+
+        // Resolves localized ship class name
+        private string GetShipClassName(ITechnology tech)
+        {
+            if (tech == null)
+                return string.Empty;
+
+            try
+            {
+                var shipObj = GetMemberValue(tech, "Ship") ?? GetMemberValue(tech, "ShipBuild");
+                if (shipObj != null)
+                {
+                    var sizeClassVal = GetMemberValue(shipObj, "SizeClass") ??
+                                       GetMemberValue(shipObj, "ShipCategory") ??
+                                       GetMemberValue(shipObj, "Class");
+
+                    if (sizeClassVal != null)
+                    {
+                        string rawStr = sizeClassVal.ToString(); 
+                        string classKey = rawStr.StartsWith("Class", StringComparison.OrdinalIgnoreCase)
+                            ? "$" + rawStr
+                            : "$Class" + rawStr;
+
+                        string loc = _localization.GetString(classKey);
+                        if (!string.IsNullOrEmpty(loc) && !loc.StartsWith("$"))
+                            return loc;
+
+                        // Fallback without Class prefix
+                        loc = _localization.GetString("$" + rawStr);
+                        if (!string.IsNullOrEmpty(loc) && !loc.StartsWith("$"))
+                            return loc;
+
+                        return rawStr;
+                    }
+                }
+            }
+            catch { }
+
+            return string.Empty;
         }
 
         private void UpdateTechPanel()
@@ -594,13 +652,11 @@ namespace Gui.Craft
             _superiorCraftPanel.Initialize(_selectedTech, _level);
         }
 
-        // Resolve actual item type (Component, Satellite, Ship) to display its real stats.
         private IItemType ResolveActualItemType(ITechnology tech)
         {
             if (tech == null)
                 return null;
 
-            // 1. Try Component -> ComponentInfo -> ComponentItem.
             try
             {
                 var compObj = GetMemberValue(tech, "Component");
@@ -644,7 +700,6 @@ namespace Gui.Craft
             }
             catch { }
 
-            // 2. Try Satellite -> SatelliteItem.
             try
             {
                 var satObj = GetMemberValue(tech, "Satellite");
@@ -661,7 +716,6 @@ namespace Gui.Craft
             }
             catch { }
 
-            // 3. Try Ship -> ShipItem.
             try
             {
                 var shipObj = GetMemberValue(tech, "Ship") ?? GetMemberValue(tech, "ShipBuild");
@@ -698,7 +752,6 @@ namespace Gui.Craft
             return null;
         }
 
-        // Construct IProduct wrapper dynamically.
         private IProduct CreateProduct(IItemType itemType)
         {
             if (itemType == null)
@@ -960,7 +1013,6 @@ namespace Gui.Craft
             return TechCategory.Other;
         }
 
-        // Check if text contains any of the localized string values.
         private bool ContainsLocalized(string text, params string[] keys)
         {
             foreach (var key in keys)
@@ -972,7 +1024,6 @@ namespace Gui.Craft
             return false;
         }
 
-        // Match category using game localization dictionary instead of hardcoded strings.
         private TechCategory ParseCategoryByLocalizedText(string text)
         {
             if (string.IsNullOrEmpty(text))
@@ -1010,22 +1061,6 @@ namespace Gui.Craft
                 return field.GetValue(obj);
 
             return null;
-        }
-
-        private string GetTechName(ITechnology tech)
-        {
-            if (tech == null)
-                return string.Empty;
-
-            try
-            {
-                var blueprint = _factory.CreateBlueprintItem(tech);
-                if (blueprint != null && !string.IsNullOrEmpty(blueprint.Name))
-                    return _localization.GetString(blueprint.Name);
-            }
-            catch { }
-
-            return tech.ToString();
         }
 
         private bool IsFreeStars(Faction faction)
