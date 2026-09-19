@@ -30,6 +30,8 @@ namespace GameDatabase.Serializable
 		public bool NextEnemyButton = true;
 		public bool KillThemAllButton;
 		public SoundTrackSerializable[] CustomSoundtrack;
-		public float EnemyShipScrollLimit = 0.1f;
+		public int EnemyShipMaxCount = 24;
+		public int EnemyShipScrollAhead = 10;
+		public int EnemyShipIdentifiedCount = 1;
 	}
 }

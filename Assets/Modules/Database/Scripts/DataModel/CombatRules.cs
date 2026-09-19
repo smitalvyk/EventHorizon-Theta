@@ -43,8 +43,10 @@ namespace GameDatabase.DataModel
         public bool NextEnemyButton => _combatRules.NextEnemyButton;
         public bool KillThemAllButton => _combatRules.KillThemAllButton;
 
-        // Scroll limit for enemy ship list in combat selection panel
-        public float EnemyShipScrollLimit => _combatRules.EnemyShipScrollLimit;
+        // New rules for displaying and scrolling the enemy fleet
+        public int EnemyShipMaxCount => _combatRules.EnemyShipMaxCount;
+        public int EnemyShipScrollAhead => _combatRules.EnemyShipScrollAhead;
+        public int EnemyShipIdentifiedCount => _combatRules.EnemyShipIdentifiedCount;
 
         public ImmutableCollection<SoundTrack> CustomSoundtrack => _combatRules.CustomSoundtrack;
     }

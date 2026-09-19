@@ -16,5 +16,7 @@
     <member name="KillThemAllButton" type="bool">For debug purposes</member>
     <member name="CustomSoundtrack" type="struct_list" typeid="SoundTrack" />
 	
-    <member name="EnemyShipScrollLimit" type="float" minvalue="0" maxvalue="1" default="0.1" />
+    <member name="EnemyShipMaxCount" type="int" minvalue="1" maxvalue="99" default="24" />
+    <member name="EnemyShipScrollAhead" type="int" minvalue="0" maxvalue="99" default="10" />
+    <member name="EnemyShipIdentifiedCount" type="int" minvalue="1" maxvalue="99" default="10" />
 </data>

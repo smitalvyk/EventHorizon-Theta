@@ -20,54 +20,68 @@ namespace Gui.Combat
         [SerializeField] private CanvasGroup CanvasGroup;
         [SerializeField] private Text ShipNameText;
 
-        public IShipInfo SelectedShip { get { return _selectedIndex >= 0 ? _fleet.Ships[_selectedIndex] : null; } }
+        [Header("Silhouette")]
+        [SerializeField] private Color _silhouetteColor = Color.black;
+
+        public IShipInfo SelectedShip => _selectedIndex >= 0 ? _fleet.Ships[_selectedIndex] : null;
 
         public int SelectedShipIndex
         {
-            get { return _selectedIndex; }
+            get => _selectedIndex;
             set
             {
-                // Prevent selecting ships beyond the allowed limit.
                 _targetIndex = Mathf.Clamp(value, 0, _maxScrollIndex);
                 UpdateSelection();
             }
         }
 
-        private int _maxScrollIndex = 24;
+        private int _maxScrollIndex = 99;
+        private int _maxNormalIndex = 99;
+        private Material _defaultShipMaterial;
+        private bool _isClamping;
 
-        public void Initialize(IFleetModel fleet, int activeShipIndex, int maxScrollAllowed = 24)
+        public void Initialize(IFleetModel fleet, int activeShipIndex, int maxScrollAllowed = 99, int maxNormalIndex = 99, int maxListCount = 24)
         {
             _fleet = fleet;
             _maxScrollIndex = maxScrollAllowed;
+            _maxNormalIndex = maxNormalIndex;
 
-            // Fallback to the first non-destroyed ship if no active ship is found.
             if (activeShipIndex < 0)
             {
                 activeShipIndex = fleet.Ships.FindIndex(s => s.Status != ShipStatus.Destroyed);
-                if (activeShipIndex < 0) activeShipIndex = 0; // Absolute fallback.
+                if (activeShipIndex < 0) activeShipIndex = 0;
             }
 
             _targetIndex = activeShipIndex;
 
             IEnumerator<IShipInfo> enumerator;
-            if (fleet.Ships.Count <= MaxShipCount)
+            if (fleet.Ships.Count <= maxListCount)
             {
-                enumerator = fleet.Ships.Take(MaxShipCount).GetEnumerator();
+                _firstShipIndex = 0;
+                enumerator = fleet.Ships.Take(maxListCount).GetEnumerator();
             }
             else
             {
-                _firstShipIndex = Mathf.Max(_targetIndex - MaxShipCount / 2, 0);
-                enumerator = fleet.Ships.Skip(_firstShipIndex).Take(MaxShipCount).GetEnumerator();
+                _firstShipIndex = Mathf.Max(_targetIndex - maxListCount / 2, 0);
+                enumerator = fleet.Ships.Skip(_firstShipIndex).Take(maxListCount).GetEnumerator();
             }
+
+            int currentShipIndex = _firstShipIndex;
 
             RectTransform item = null;
             foreach (Transform transform in ShipsArea.content)
             {
                 item = transform.GetComponent<RectTransform>();
                 if (enumerator.MoveNext())
-                    UpdateShipItem(item, enumerator.Current);
+                {
+                    bool isSilhouette = currentShipIndex > _maxNormalIndex;
+                    UpdateShipItem(item, enumerator.Current, isSilhouette);
+                    currentShipIndex++;
+                }
                 else
+                {
                     item.gameObject.SetActive(false);
+                }
             }
 
             while (enumerator.MoveNext())
@@ -75,14 +89,15 @@ namespace Gui.Combat
                 var newItem = (RectTransform)Instantiate(item);
                 newItem.SetParent(item.parent);
                 newItem.localScale = Vector3.one;
-                UpdateShipItem(newItem, enumerator.Current);
+
+                bool isSilhouette = currentShipIndex > _maxNormalIndex;
+                UpdateShipItem(newItem, enumerator.Current, isSilhouette);
+                currentShipIndex++;
             }
 
-            // Force immediate layout rebuild to ensure correct anchored positions before calculation.
             Canvas.ForceUpdateCanvases();
             LayoutRebuilder.ForceRebuildLayoutImmediate(ShipsArea.content);
 
-            // Reset scroll position to prevent snapping artifacts.
             ShipsArea.horizontalNormalizedPosition = 0f;
             ShipsArea.velocity = Vector2.zero;
 
@@ -91,6 +106,7 @@ namespace Gui.Combat
 
         public void OnContentMoved(Vector2 position)
         {
+            ClampScrollPosition();
             UpdateSelection();
         }
 
@@ -121,7 +137,7 @@ namespace Gui.Combat
 
                     var delta = currentPosition - item.anchoredPosition.x;
 
-                    // Restrict snapping to ships within the allowed limit.
+                    // Restrict snapping to ships within allowed scroll range
                     if (index <= _maxScrollIndex)
                     {
                         if (Mathf.Abs(delta) < Mathf.Abs(deltaMin) && _fleet.Ships[index].Status != ShipStatus.Destroyed)
@@ -133,7 +149,6 @@ namespace Gui.Combat
                     index++;
                 }
 
-                // Fallback: Find the nearest ship within the limit regardless of status if all are destroyed.
                 if (_selectedIndex == -1)
                 {
                     index = _firstShipIndex;
@@ -157,22 +172,47 @@ namespace Gui.Combat
             }
 
             if (ShipNameText != null && _selectedIndex >= 0)
-                ShipNameText.text = _localization.GetString(_fleet.Ships[_selectedIndex].ShipData.Name);
+            {
+                if (_selectedIndex > _maxNormalIndex)
+                    ShipNameText.text = "???";
+                else
+                    ShipNameText.text = _localization.GetString(_fleet.Ships[_selectedIndex].ShipData.Name);
+            }
         }
 
-        private void UpdateShipItem(RectTransform item, IShipInfo ship)
+        private void UpdateShipItem(RectTransform item, IShipInfo ship, bool isSilhouette)
         {
             item.gameObject.SetActive(true);
             item.localScale = Vector3.one;
             var viewModel = item.GetComponent<SelectShipPanelItemViewModel>();
 
             viewModel.Icon.sprite = _resourceLocator.GetSprite(ship.ShipData.Model.ModelImage);
-            viewModel.Icon.color = ship.ShipData.ColorScheme.HsvColor;
-            viewModel.DisabledIcon.gameObject.SetActive(ship.Status == ShipStatus.Destroyed);
-            viewModel.ConditionText.gameObject.SetActive(ship.Condition > 0 && ship.Condition < 1);
-            viewModel.ConditionText.text = Mathf.FloorToInt(ship.Condition * 100) + "%";
-            viewModel.SetClass(ship.ShipData.ExtraThreatLevel);
-            viewModel.SetLevel(ship.ShipData.Experience.Level);
+
+            if (_defaultShipMaterial == null && viewModel.Icon.material != null)
+                _defaultShipMaterial = viewModel.Icon.material;
+
+            if (isSilhouette)
+            {
+                // Disabling material flattens sprite to solid silhouette
+                viewModel.Icon.material = null;
+                viewModel.Icon.color = _silhouetteColor;
+
+                viewModel.DisabledIcon.gameObject.SetActive(false);
+                viewModel.ConditionText.gameObject.SetActive(false);
+                viewModel.SetClass(0);
+                viewModel.SetLevel(0);
+            }
+            else
+            {
+                viewModel.Icon.material = _defaultShipMaterial;
+                viewModel.Icon.color = ship.ShipData.ColorScheme.HsvColor;
+
+                viewModel.DisabledIcon.gameObject.SetActive(ship.Status == ShipStatus.Destroyed);
+                viewModel.ConditionText.gameObject.SetActive(ship.Condition > 0 && ship.Condition < 1);
+                viewModel.ConditionText.text = Mathf.FloorToInt(ship.Condition * 100) + "%";
+                viewModel.SetClass(ship.ShipData.ExtraThreatLevel);
+                viewModel.SetLevel(ship.ShipData.Experience.Level);
+            }
         }
 
         private void Update()
@@ -182,11 +222,68 @@ namespace Gui.Combat
             ShipsArea.velocity = Mathf.Abs(x) > 1 ? new Vector2(x, 0) : Vector2.zero;
         }
 
+        private void LateUpdate()
+        {
+            ClampScrollPosition();
+        }
+
+        private void ClampScrollPosition()
+        {
+            // Do not restrict while initial centering is in progress
+            if (_targetIndex >= 0)
+                return;
+
+            if (_isClamping || ShipsArea == null || ShipsArea.content == null || ShipsArea.content.childCount == 0)
+                return;
+
+            var areaWidth = ShipsArea.GetComponent<RectTransform>().rect.width;
+            var contentWidth = ShipsArea.content.rect.width;
+            var scrollableWidth = contentWidth - areaWidth;
+
+            if (scrollableWidth <= 0.001f)
+                return;
+
+            var firstItem = ShipsArea.content.GetChild(0).GetComponent<RectTransform>();
+            int maxChildIndex = Mathf.Clamp(_maxScrollIndex - _firstShipIndex, 0, ShipsArea.content.childCount - 1);
+            var maxItem = ShipsArea.content.GetChild(maxChildIndex).GetComponent<RectTransform>();
+
+            if (firstItem == null || maxItem == null)
+                return;
+
+            float minNorm = (firstItem.anchoredPosition.x - areaWidth / 2f) / scrollableWidth;
+            float maxNorm = (maxItem.anchoredPosition.x - areaWidth / 2f) / scrollableWidth;
+
+            if (minNorm > maxNorm)
+            {
+                float temp = minNorm;
+                minNorm = maxNorm;
+                maxNorm = temp;
+            }
+
+            // Right clamp limit
+            if (ShipsArea.horizontalNormalizedPosition > maxNorm)
+            {
+                _isClamping = true;
+                ShipsArea.horizontalNormalizedPosition = maxNorm;
+                if (ShipsArea.velocity.x < 0)
+                    ShipsArea.velocity = Vector2.zero;
+                _isClamping = false;
+            }
+            // Left clamp limit
+            else if (ShipsArea.horizontalNormalizedPosition < minNorm)
+            {
+                _isClamping = true;
+                ShipsArea.horizontalNormalizedPosition = minNorm;
+                if (ShipsArea.velocity.x > 0)
+                    ShipsArea.velocity = Vector2.zero;
+                _isClamping = false;
+            }
+        }
+
         private int _targetIndex = -1;
         private float _selectedDistance;
         private int _selectedIndex;
         private int _firstShipIndex;
         private IFleetModel _fleet;
-        private const int MaxShipCount = 24;
     }
 }

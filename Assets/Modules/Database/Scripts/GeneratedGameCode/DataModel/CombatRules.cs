@@ -47,7 +47,9 @@ namespace GameDatabase.DataModel
 			NextEnemyButton = serializable.NextEnemyButton;
 			KillThemAllButton = serializable.KillThemAllButton;
 			CustomSoundtrack = new ImmutableCollection<SoundTrack>(serializable.CustomSoundtrack?.Select(item => SoundTrack.Create(item, loader)));
-			EnemyShipScrollLimit = UnityEngine.Mathf.Clamp(serializable.EnemyShipScrollLimit, 0f, 1f);
+			EnemyShipMaxCount = UnityEngine.Mathf.Clamp(serializable.EnemyShipMaxCount, 1, 99);
+			EnemyShipScrollAhead = UnityEngine.Mathf.Clamp(serializable.EnemyShipScrollAhead, 0, 99);
+			EnemyShipIdentifiedCount = UnityEngine.Mathf.Clamp(serializable.EnemyShipIdentifiedCount, 1, 99);
 
 			OnDataDeserialized(serializable, loader);
 		}
@@ -75,7 +77,9 @@ namespace GameDatabase.DataModel
 		public bool NextEnemyButton { get; private set; }
 		public bool KillThemAllButton { get; private set; }
 		public ImmutableCollection<SoundTrack> CustomSoundtrack { get; private set; }
-		public float EnemyShipScrollLimit { get; private set; }
+		public int EnemyShipMaxCount { get; private set; }
+		public int EnemyShipScrollAhead { get; private set; }
+		public int EnemyShipIdentifiedCount { get; private set; }
 
 		public static CombatRules DefaultValue { get; private set; }
 
@@ -105,7 +109,9 @@ namespace GameDatabase.DataModel
 				if (name == "DisablePlanet") return GetDisablePlanet;
 				if (name == "NextEnemyButton") return GetNextEnemyButton;
 				if (name == "KillThemAllButton") return GetKillThemAllButton;
-				if (name == "EnemyShipScrollLimit") return GetEnemyShipScrollLimit;
+				if (name == "EnemyShipMaxCount") return GetEnemyShipMaxCount;
+				if (name == "EnemyShipScrollAhead") return GetEnemyShipScrollAhead;
+				if (name == "EnemyShipIdentifiedCount") return GetEnemyShipIdentifiedCount;
 				return ((IVariableResolver)_context).ResolveVariable(name);
 			}
 
@@ -116,7 +122,9 @@ namespace GameDatabase.DataModel
 			private Variant GetDisablePlanet() => _context.DisablePlanet;
 			private Variant GetNextEnemyButton() => _context.NextEnemyButton;
 			private Variant GetKillThemAllButton() => _context.KillThemAllButton;
-			private Variant GetEnemyShipScrollLimit() => _context.EnemyShipScrollLimit;
+			private Variant GetEnemyShipMaxCount() => _context.EnemyShipMaxCount;
+			private Variant GetEnemyShipScrollAhead() => _context.EnemyShipScrollAhead;
+			private Variant GetEnemyShipIdentifiedCount() => _context.EnemyShipIdentifiedCount;
 		}
 	}
 }

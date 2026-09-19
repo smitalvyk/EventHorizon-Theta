@@ -1,4 +1,5 @@
-﻿using Combat.Component.Ship;
+﻿using System.Collections.Generic;
+using Combat.Component.Ship;
 using Combat.Domain;
 using Combat.Manager;
 using Combat.Scene;
@@ -14,9 +15,6 @@ namespace Gui.Combat
         [Inject] private readonly CombatManager _manager;
         [Inject] private readonly IScene _scene;
 
-        // TODO: Inject CombatRules here if needed to fetch the actual scroll limit.
-        // [Inject] private readonly CombatRules _combatRules;
-
         [SerializeField] private ShipList _enemyShips;
         [SerializeField] private ShipList _playerShips;
 
@@ -25,19 +23,25 @@ namespace Gui.Combat
             if (Window.IsVisible)
                 return;
 
-            int enemyActiveIndex = combatModel.EnemyFleet.Ships.FindIndex(item => item.Status == ShipStatus.Active);
-            int playerActiveIndex = combatModel.PlayerFleet.Ships.FindIndex(item => item.Status == ShipStatus.Active);
+            IList<IShipInfo> enemyShips = combatModel.EnemyFleet.Ships;
+            IList<IShipInfo> playerShips = combatModel.PlayerFleet.Ships;
 
-            // Fetch limit setting from rules (using 0.1f as a placeholder).
-            float scrollLimitSetting = 0.1f;
-            // scrollLimitSetting = combatModel.Rules.EnemyShipScrollLimit; 
+            int enemyIndex = FindTargetShipIndex(enemyShips);
+            int playerIndex = FindTargetShipIndex(playerShips);
 
-            // Calculate the maximum allowed index based on the limit.
-            int enemyMaxScrollIndex = Mathf.RoundToInt(24 * scrollLimitSetting);
+            var rules = combatModel.Rules;
+            int maxListCount = rules.EnemyShipMaxCount;
+            int scrollAhead = rules.EnemyShipScrollAhead;
+            int identifiedCount = rules.EnemyShipIdentifiedCount;
 
-            // Apply limit for enemies; allow full access (up to 24) for the player.
-            _enemyShips.Initialize(combatModel.EnemyFleet, enemyActiveIndex, enemyMaxScrollIndex);
-            _playerShips.Initialize(combatModel.PlayerFleet, playerActiveIndex, 24);
+            // Compute dynamic limits for enemy fleet
+            int enemyMaxScrollIndex = Mathf.Clamp(enemyIndex + scrollAhead, 0, Mathf.Max(0, enemyShips.Count - 1));
+            int enemyMaxNormalIndex = Mathf.Clamp(enemyIndex + (identifiedCount - 1), 0, Mathf.Max(0, enemyShips.Count - 1));
+
+            int playerMaxIndex = Mathf.Max(0, playerShips.Count - 1);
+
+            _enemyShips.Initialize(combatModel.EnemyFleet, enemyIndex, enemyMaxScrollIndex, enemyMaxNormalIndex, maxListCount);
+            _playerShips.Initialize(combatModel.PlayerFleet, playerIndex, playerMaxIndex, playerMaxIndex, 99);
 
             GetComponent<IWindow>().Open();
         }
@@ -45,11 +49,31 @@ namespace Gui.Combat
         public void StartButtonClicked()
         {
             var ship = _playerShips.SelectedShip;
-            if (ship.Status != ShipStatus.Ready)
+            if (ship == null || ship.Status != ShipStatus.Ready)
                 return;
 
             _manager.CreateShip(ship);
             GetComponent<IWindow>().Close();
+        }
+
+        private int FindTargetShipIndex(IList<IShipInfo> ships)
+        {
+            if (ships == null || ships.Count == 0)
+                return 0;
+
+            for (int i = 0; i < ships.Count; i++)
+            {
+                if (ships[i].Status == ShipStatus.Active)
+                    return i;
+            }
+
+            for (int i = 0; i < ships.Count; i++)
+            {
+                if (ships[i].Status == ShipStatus.Ready)
+                    return i;
+            }
+
+            return 0;
         }
 
         private void Update()
@@ -58,6 +82,6 @@ namespace Gui.Combat
                 Window.Close();
         }
 
-        private IWindow Window { get { return GetComponent<IWindow>(); } }
+        private IWindow Window => GetComponent<IWindow>();
     }
 }
