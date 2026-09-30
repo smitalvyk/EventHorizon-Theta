@@ -61,10 +61,9 @@ namespace Domain.Quests
                 if (--counter == 0)
                 {
                     var currentQuest = _recentlyUpdatedQuests.Last();
-                    UnityEngine.Debug.LogWarning($"[Anti-Loop] Force stopped infinite loop inside quest: {currentQuest.Id} (Node: {currentQuest.NodeId})");
-
-                    // Clear queue to prevent freezing next frame
-                    _recentlyUpdatedQuests.Clear();
+                    UnityEngine.Debug.LogException(new InvalidOperationException(
+                        "QuestManager - infinite loop. Quest:" + currentQuest.Id + " Node:" + currentQuest.NodeId));
+                    UnityEngine.Debug.Break();
                     break;
                 }
 
@@ -109,9 +108,7 @@ namespace Domain.Quests
 
         private void LoadQuests()
         {
-            //foreach (var item in _context.QuestDataStorage.GetActiveQuests())
-            //	Add(_factory.Create(item));
-            foreach (var item in _context.QuestDataStorage.GetActiveQuests().ToList())
+            foreach (var item in _context.QuestDataStorage.GetActiveQuests())
                 Add(_factory.Create(item));
 
             var starId = _context.StarMapDataProvider.CurrentStar.Id;
@@ -129,68 +126,29 @@ namespace Domain.Quests
             _dailyQuests.Assign(_database.QuestList.Where(item => item.StartCondition == StartCondition.Daily), _requirementsFactory, seed);
         }
 
-        //public void StartQuest(QuestModel questModel, int seedIncrement = 0)
-        //{
-        //       if (questModel == null) return;
-
-        //    var starId = _context.StarMapDataProvider.CurrentStar.Id;
-        //       var seed = _context.QuestDataStorage.GenerateSeed(questModel, starId) + seedIncrement;
-
-        //    if (questModel.StartCondition != StartCondition.Manual)
-        //    {
-        //        UnityEngine.Debug.LogException(new ArgumentException("QuestManager.StartQuest: Wrong start condition - " + questModel.StartCondition));
-        //        return;
-        //    }
-
-        //       if (!questModel.CanBeStarted(_context.QuestDataStorage, starId))
-        //    {
-        //        UnityEngine.Debug.LogError(new ArgumentException("QuestManager.StartQuest: Quest can't be started - " + questModel.Id.Value));
-        //           return;
-        //    }
-
-        //    if (!_requirementsFactory.CreateForQuest(questModel.Requirement, seed).CanStart(starId, seed))
-        //    {
-        //        UnityEngine.Debug.LogError(new ArgumentException("QuestManager.StartQuest: Requirements are not met - " + questModel.Id.Value));
-        //        return;
-        //    }
-
-        //       Add(_factory.Create(questModel, starId, seedIncrement));
-        //   }
-
         public void StartQuest(QuestModel questModel, int seedIncrement = 0)
         {
             if (questModel == null) return;
-
-            // Anti-loop / ping-pong protection
-            if (_questStartCooldowns.TryGetValue(questModel.Id.Value, out float lastStartTime))
-            {
-                // Block if re-triggered within 1 second
-                if (UnityEngine.Time.unscaledTime - lastStartTime < 1.0f)
-                {
-                    UnityEngine.Debug.LogWarning($"[Anti-Loop] Quest {questModel.Id.Value} ({questModel.Name}) attempted to start too quickly! Blocked.");
-                    return;
-                }
-            }
-            // Track start time
-            _questStartCooldowns[questModel.Id.Value] = UnityEngine.Time.unscaledTime;
 
             var starId = _context.StarMapDataProvider.CurrentStar.Id;
             var seed = _context.QuestDataStorage.GenerateSeed(questModel, starId) + seedIncrement;
 
             if (questModel.StartCondition != StartCondition.Manual)
             {
-                UnityEngine.Debug.LogWarning($"[Quest] Wrong start condition for {questModel.Id.Value}: {questModel.StartCondition}");
+                UnityEngine.Debug.LogException(new ArgumentException("QuestManager.StartQuest: Wrong start condition - " + questModel.StartCondition));
                 return;
             }
 
             if (!questModel.CanBeStarted(_context.QuestDataStorage, starId))
             {
-                return; // Silent return
+                UnityEngine.Debug.LogError(new ArgumentException("QuestManager.StartQuest: Quest can't be started - " + questModel.Id.Value));
+                return;
             }
 
             if (!_requirementsFactory.CreateForQuest(questModel.Requirement, seed).CanStart(starId, seed))
             {
-                return; // Silent return
+                UnityEngine.Debug.LogError(new ArgumentException("QuestManager.StartQuest: Requirements are not met - " + questModel.Id.Value));
+                return;
             }
 
             Add(_factory.Create(questModel, starId, seedIncrement));
@@ -389,7 +347,7 @@ namespace Domain.Quests
         private readonly RequirementsFactory _requirementsFactory;
         private readonly IDatabase _database;
         private readonly IQuestManagerContext _context;
-        private readonly Dictionary<int, float> _questStartCooldowns = new();
+
         private const long UpdateCooldown = 10 * TimeSpan.TicksPerSecond;
     }
 }

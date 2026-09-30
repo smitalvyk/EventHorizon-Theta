@@ -13,61 +13,67 @@ using ShipEditor.Model;
 
 namespace ShipEditor.UI
 {
-	public class ComponentListItem : ComponentListItemBase
-	{
-	    [Inject] private readonly ILocalization _localization;
-	    [Inject] private readonly IResourceLocator _resourceLocator;
-		[Inject] private readonly IShipEditorModel _shipEditor;
+    public class ComponentListItem : ComponentListItemBase
+    {
+        [Inject] private readonly ILocalization _localization;
+        [Inject] private readonly IResourceLocator _resourceLocator;
+        [Inject] private readonly IShipEditorModel _shipEditor;
 
-		[SerializeField] private DraggableComponent _draggableComponent;
+        [SerializeField] private DraggableComponent _draggableComponent;
         [SerializeField] private Button _button;
-		[SerializeField] private Image _icon;
-		[SerializeField] private Image _lockIcon;
-		[SerializeField] private Text _name;
+        [SerializeField] private Image _icon;
+        [SerializeField] private Image _lockIcon;
+        [SerializeField] private Text _name;
         [SerializeField] private Text _modification;
         [SerializeField] private Text _quantity;
 
-		private ComponentInfo _component;
+        private ComponentInfo _component;
+        private bool _canInstall;
 
-		public override void Initialize(ComponentInfo data, int quantity)
-		{
+        public override void Initialize(ComponentInfo data, int quantity)
+        {
             _quantity.gameObject.SetActive(quantity > 0);
-			_quantity.text = quantity.ToString();
+            _quantity.text = quantity.ToString();
 
             if (_component == data)
-				return;
+                return;
 
-			_component = data;
-			var ship = _shipEditor.Ship.Model;
+            _component = data;
+            var ship = _shipEditor.Ship.Model;
             var model = _component.CreateComponent(ship.Layout.CellCount);
             model.Upgrades = _shipEditor.UpgradesProvider.GetComponentUpgrades(_component.Data);
-			var canInstall = model.IsSuitable(ship);
 
-			_button.interactable = canInstall;
-			_lockIcon.gameObject.SetActive(!canInstall);
+            _canInstall = model.IsSuitable(ship);
 
-			UpdateDescription(model);
-		}
+            // Always allow clicking to inspect component stats
+            _button.interactable = true;
+            _lockIcon.gameObject.SetActive(!_canInstall);
+
+            UpdateDescription(model);
+        }
 
         public override ComponentInfo Component => _component;
-		public override bool Selected { get; set; }
+        public override bool Selected { get; set; }
 
-		public void OnDragStarted(PointerEventData eventData)
-		{
-			_draggableComponent.Initialize(new DraggableComponent.Content(_component), eventData);
-		}
+        public void OnDragStarted(PointerEventData eventData)
+        {
+            // Prevent dragging if component cannot be installed
+            if (!_canInstall)
+                return;
 
-		private void UpdateDescription(IComponent component)
-		{
-			_name.text = _component.GetName(_localization);
-		    _name.color = Gui.Theme.UiTheme.Current.GetQualityColor(_component.ItemQuality);
+            _draggableComponent.Initialize(new DraggableComponent.Content(_component), eventData);
+        }
 
-			_icon.sprite = _resourceLocator.GetSprite(_component.Data.Icon);
-			_icon.color = _component.Data.Color;
+        private void UpdateDescription(IComponent component)
+        {
+            _name.text = _component.GetName(_localization);
+            _name.color = Gui.Theme.UiTheme.Current.GetQualityColor(_component.ItemQuality);
 
-		    var modification = component.Modification ?? EmptyModification.Instance;
-		    _modification.gameObject.SetActive(!string.IsNullOrEmpty(_modification.text = modification.GetDescription(_localization)));
-		    //_modification.color = _component.ItemQuality.ToColor();
-		}
-	}
+            _icon.sprite = _resourceLocator.GetSprite(_component.Data.Icon);
+            _icon.color = _component.Data.Color;
+
+            var modification = component.Modification ?? EmptyModification.Instance;
+            _modification.gameObject.SetActive(!string.IsNullOrEmpty(_modification.text = modification.GetDescription(_localization)));
+        }
+    }
 }

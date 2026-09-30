@@ -115,4 +115,19 @@
     <string name="RamDamageModifier">Модификатор тарана</string>	
     <string name="EnginePowerModifier">Модификатор тяги</string>
     <string name="TurnRateModifier">Модификатор поворота</string>
+	<!-- ============================================== -->
+    <string name="Sorting">Сортировка</string>
+    <string name="SortDefault">По умолчанию</string>
+    <string name="SortNameAsc">Имя (А-Я)</string>
+    <string name="SortNameDesc">Имя (Я-А)</string>
+    <string name="SortIdAsc">ID (0-9)</string>
+    <string name="SortIdDesc">ID (9-0)</string>
+
+    
+    <string name="WeaponProjectileSize">Размер снаряда</string>
+    <string name="ComponentLimit">Лимит модуля</string>
+    <string name="DefaultTagName">Тип_</string>
+    <string name="Requirements">Требования:</string>
+    <string name="ShipTypeMechanical">Мех. корабли</string>
+    <string name="ShipTypeOrganic">Орг. корабли</string>
 </resources>

@@ -1,19 +1,20 @@
-﻿using System.Linq;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.Linq;
+using Constructor;
+using Constructor.Component;
+using Constructor.Modification;
+using GameDatabase;
+using GameDatabase.DataModel;
+using GameDatabase.Enums;
+using GameDatabase.Extensions;
+using GameDatabase.Model;
+using Gui.Theme;
+using Services.Localization;
+using Services.Resources;
+using ShipEditor.Model;
 using UnityEngine;
 using UnityEngine.UI;
 using Zenject;
-using Constructor;
-using Constructor.Modification;
-using GameDatabase.DataModel;
-using GameDatabase.Enums;
-using Services.Localization;
-using Services.Resources;
-using Constructor.Component;
-using GameDatabase.Extensions;
-using ShipEditor.Model;
-using Gui.Theme;
-using GameDatabase;
 
 namespace ShipEditor.UI
 {
@@ -36,18 +37,76 @@ namespace ShipEditor.UI
         [SerializeField] private Image _requiredCellIcon;
         [SerializeField] private Text _requiredCellText;
 
+        [Header("Drone Stats Block")]
+        [SerializeField] private GameObject _droneStats;
+        [SerializeField] private Image _droneModelImage;
+
         [Header("Layout Shape Preview")]
         [SerializeField] private GridLayoutGroup _layoutGrid;
         [SerializeField] private Image _cellTemplate;
 
-        [SerializeField] private Color _weaponCellColor;
-        [SerializeField] private Color _outerCellColor;
-        [SerializeField] private Color _innerCellColor;
-        [SerializeField] private Color _engineCellColor;
-        [SerializeField] private Color _emptyCellColor;
+        [SerializeField] private Color _weaponCellColor = new Color(1f, 0.65f, 0.55f, 1f);
+        [SerializeField] private Color _outerCellColor = new Color(0.5f, 0.9f, 1f, 1f);
+        [SerializeField] private Color _innerCellColor = new Color(0.6f, 1f, 0.6f, 1f);
+        [SerializeField] private Color _engineCellColor = new Color(1f, 0.95f, 0.55f, 1f);
+        [SerializeField] private Color _emptyCellColor = new Color(0.2f, 0.2f, 0.2f, 0.5f);
+
+        private ComponentInfo _currentComponent;
+        private bool _hasComponent;
+        private bool _isSubscribed;
+
+        private void OnEnable()
+        {
+            SubscribeEvents();
+        }
+
+        private void OnDisable()
+        {
+            UnsubscribeEvents();
+        }
+
+        // Subscribe to live editor events to update restriction counts
+        private void SubscribeEvents()
+        {
+            if (_isSubscribed || _shipEditor?.Events == null)
+                return;
+
+            _shipEditor.Events.ComponentAdded += OnShipComponentsChanged;
+            _shipEditor.Events.ComponentRemoved += OnShipComponentsChanged;
+            _shipEditor.Events.MultipleComponentsChanged += OnMultipleComponentsChanged;
+            _isSubscribed = true;
+        }
+
+        private void UnsubscribeEvents()
+        {
+            if (!_isSubscribed || _shipEditor?.Events == null)
+                return;
+
+            _shipEditor.Events.ComponentAdded -= OnShipComponentsChanged;
+            _shipEditor.Events.ComponentRemoved -= OnShipComponentsChanged;
+            _shipEditor.Events.MultipleComponentsChanged -= OnMultipleComponentsChanged;
+            _isSubscribed = false;
+        }
+
+        private void OnShipComponentsChanged(IComponentModel component) => RefreshStats();
+        private void OnMultipleComponentsChanged() => RefreshStats();
+
+        // Refresh stats when installed ship components change
+        private void RefreshStats()
+        {
+            if (!_hasComponent || _currentComponent.Data == null)
+                return;
+
+            UpdateDescription(_currentComponent);
+        }
 
         public void Initialize(ComponentInfo component)
         {
+            SubscribeEvents();
+
+            _currentComponent = component;
+            _hasComponent = true;
+
             _requiredCellIcon.color = GetCellColor(component.Data.CellType);
             _requiredCellText.text = component.Data.CellType == CellType.Weapon ? SlotTypeToString(component.Data.WeaponSlotType) : string.Empty;
             _sizeText.text = component.Data.Layout.CellCount.ToString();
@@ -56,6 +115,7 @@ namespace ShipEditor.UI
             UpdateLayoutPreview(component);
         }
 
+        // Map layout slot type to grid cell color
         private Color GetCellColor(CellType cellType)
         {
             switch (cellType)
@@ -73,20 +133,23 @@ namespace ShipEditor.UI
 
         private static string SlotTypeToString(char type)
         {
-            if (type == default)
-                return string.Empty;
-
-            return type.ToString();
+            return type == default ? string.Empty : type.ToString();
         }
 
         public void Clear()
         {
+            _hasComponent = false;
+            _currentComponent = default;
+
             _icon.sprite = _emptyIcon;
             _icon.color = Color.white;
             _name.text = "-";
 
             if (_layoutGrid != null)
                 _layoutGrid.gameObject.SetActive(false);
+
+            if (_droneStats != null)
+                _droneStats.SetActive(false);
         }
 
         private void UpdateDescription(ComponentInfo info)
@@ -117,11 +180,96 @@ namespace ShipEditor.UI
 
             if (_stats)
             {
+                // Placement restrictions are displayed below Mass
+                var statsList = GetDescription(component, _localization, _database.LocalizationSettings)
+                    .Concat(ComponentRestrictionsFormatter.GetStats(info, component, _shipEditor, _localization));
+
                 _stats.transform.InitializeElements<NameValueItem, KeyValuePair<string, string>>(
-                    GetDescription(component, _localization, _database.LocalizationSettings), UpdateTextField);
+                    statsList, UpdateTextField);
+            }
+
+            bool isDroneBay = component.DroneBays.Any();
+            if (_droneStats != null)
+                _droneStats.SetActive(isDroneBay);
+
+            if (isDroneBay)
+                UpdateDroneStats(component);
+        }
+
+        // Render drone preview and calculated combat parameters
+        private void UpdateDroneStats(IComponent component)
+        {
+            if (_droneStats == null)
+                return;
+
+            var stats = DroneStatsCalculator.Calculate(component, _localization);
+            if (!stats.IsValid)
+                return;
+
+            // Resolve drone ship icon
+            var img = _droneModelImage;
+            if (img == null)
+            {
+                var imgTr = _droneStats.transform.Find("ShipIcon/Image") ?? _droneStats.transform.Find("ShipIcon");
+                if (imgTr != null)
+                    img = imgTr.GetComponentInChildren<Image>();
+            }
+
+            if (img != null && stats.ShipModelImage != SpriteId.Empty)
+            {
+                img.sprite = _resourceLocator.GetSprite(stats.ShipModelImage);
+                img.color = Color.white;
+                img.preserveAspect = true;
+            }
+
+            // Build display items
+            var displayStats = new List<KeyValuePair<string, string>>();
+
+            if (stats.Weapons.Count > 0)
+                displayStats.Add(new KeyValuePair<string, string>(_localization.GetString("$WeaponType"), string.Join(", ", stats.Weapons)));
+
+            if (stats.Devices.Count > 0)
+                displayStats.Add(new KeyValuePair<string, string>(_localization.GetString("$Device"), string.Join(", ", stats.Devices)));
+
+            displayStats.Add(new KeyValuePair<string, string>(_localization.GetString("$HitPoints"), Mathf.RoundToInt(stats.Durability).ToString()));
+
+            if (stats.Energy > 0)
+                displayStats.Add(new KeyValuePair<string, string>(_localization.GetString("$Energy"), Mathf.RoundToInt(stats.Energy).ToString()));
+
+            if (stats.Speed > 0)
+                displayStats.Add(new KeyValuePair<string, string>(_localization.GetString("$Velocity"), stats.Speed.ToString(_floatFormat)));
+
+            // Populate or instantiate text rows
+            var textFields = _droneStats.transform.Cast<Transform>()
+                .Where(t => t.name.StartsWith("TextField"))
+                .ToList();
+
+            while (textFields.Count < displayStats.Count && textFields.Count > 0)
+            {
+                var newRow = Instantiate(textFields[0], _droneStats.transform);
+                newRow.name = "TextField";
+                textFields.Add(newRow);
+            }
+
+            for (int i = 0; i < textFields.Count; i++)
+            {
+                if (i < displayStats.Count)
+                {
+                    textFields[i].gameObject.SetActive(true);
+                    var texts = textFields[i].GetComponentsInChildren<Text>(true);
+                    if (texts.Length > 0 && texts[0] != null)
+                        texts[0].text = displayStats[i].Key;
+                    if (texts.Length > 1 && texts[1] != null)
+                        texts[1].text = displayStats[i].Value;
+                }
+                else
+                {
+                    textFields[i].gameObject.SetActive(false);
+                }
             }
         }
-        // Render the component layout centered strictly by active/visible cells
+
+        // Generate dynamic preview grid for component layout shape
         private void UpdateLayoutPreview(ComponentInfo component)
         {
             if (_layoutGrid == null || _cellTemplate == null)
@@ -129,7 +277,6 @@ namespace ShipEditor.UI
 
             _layoutGrid.gameObject.SetActive(true);
 
-            // Clean up previous cells, keeping the template
             foreach (Transform child in _layoutGrid.transform)
             {
                 if (child != _cellTemplate.transform)
@@ -148,10 +295,7 @@ namespace ShipEditor.UI
             {
                 string cleanData = rawData.Trim();
                 int totalLength = cleanData.Length;
-
-                int n = Mathf.CeilToInt(Mathf.Sqrt(totalLength));
-                n = Mathf.Max(n, 1);
-
+                int n = Mathf.Max(Mathf.CeilToInt(Mathf.Sqrt(totalLength)), 1);
                 int h = Mathf.CeilToInt((float)totalLength / n);
                 rawRows = new string[h];
 
@@ -163,7 +307,7 @@ namespace ShipEditor.UI
                 }
             }
 
-            // 1. Find bounding box of only active cells (ignoring empty outer rows/columns)
+            // Find occupied cell bounds
             int minX = int.MaxValue;
             int maxX = -1;
             int minY = int.MaxValue;
@@ -185,65 +329,46 @@ namespace ShipEditor.UI
                 }
             }
 
-            // Fallback if no active cells were found
             if (maxX == -1)
             {
                 minX = maxX = 0;
                 minY = maxY = 0;
             }
 
-            // Trimmed visible dimensions
             int width = maxX - minX + 1;
             int height = maxY - minY + 1;
 
-            // 2. Cell sizing rule: 48x48 if <= 4x4, -4px per unit above 4
-            int maxDimension = Mathf.Max(width, height);
-            float baseCellSize = 48f;
-            float cellSizeValue = baseCellSize;
+            var gridRect = _layoutGrid.GetComponent<RectTransform>();
+            var parentFrame = gridRect.parent as RectTransform;
 
-            if (maxDimension > 3)
+            float availableWidth = 110f;
+            float availableHeight = 110f;
+
+            if (parentFrame != null && _icon != null)
             {
-                cellSizeValue -= (maxDimension - 1) * 4f;
+                availableWidth = Mathf.Max(60f, parentFrame.rect.width - _icon.rectTransform.rect.width - 24f);
+                availableHeight = Mathf.Max(60f, parentFrame.rect.height - 12f);
             }
 
-            cellSizeValue = Mathf.Max(cellSizeValue, 8f);
+            Vector2 spacing = _layoutGrid.spacing.x > 0 ? _layoutGrid.spacing : new Vector2(2f, 2f);
+            float cellW = (availableWidth - (width - 1) * spacing.x) / width;
+            float cellH = (availableHeight - (height - 1) * spacing.y) / height;
+            float cellSizeValue = Mathf.Clamp(Mathf.Min(cellW, cellH), 6f, 28f);
 
             Vector2 cellSize = new Vector2(cellSizeValue, cellSizeValue);
-            Vector2 spacing = _layoutGrid.spacing.x > 0 ? _layoutGrid.spacing : new Vector2(2f, 2f);
-
             _layoutGrid.cellSize = cellSize;
             _layoutGrid.spacing = spacing;
             _layoutGrid.childAlignment = TextAnchor.MiddleCenter;
             _layoutGrid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             _layoutGrid.constraintCount = width;
 
-            // 3. Calculate exact dimensions for the trimmed grid
-            float requiredGridW = width * cellSize.x + (width - 1) * spacing.x + _layoutGrid.padding.left + _layoutGrid.padding.right;
-            float requiredGridH = height * cellSize.y + (height - 1) * spacing.y + _layoutGrid.padding.top + _layoutGrid.padding.bottom;
-
-            var gridRect = _layoutGrid.GetComponent<RectTransform>();
-            gridRect.sizeDelta = new Vector2(requiredGridW, requiredGridH);
-
-            // Resize parent frame box if present
-            var parentFrame = gridRect.parent as RectTransform;
-            if (parentFrame != null && parentFrame != (RectTransform)transform)
-            {
-                float targetFrameW = Mathf.Max(parentFrame.sizeDelta.x, requiredGridW + 12f);
-                float targetFrameH = Mathf.Max(55f, requiredGridH + 12f);
-
-                parentFrame.sizeDelta = new Vector2(targetFrameW, targetFrameH);
-
-                var layoutElement = parentFrame.GetComponent<LayoutElement>();
-                if (layoutElement != null)
-                {
-                    layoutElement.preferredHeight = targetFrameH;
-                    layoutElement.minHeight = targetFrameH;
-                }
-            }
+            gridRect.sizeDelta = new Vector2(
+                width * cellSize.x + (width - 1) * spacing.x,
+                height * cellSize.y + (height - 1) * spacing.y
+            );
 
             var cellColor = GetCellColor(component.Data.CellType);
 
-            // 4. Instantiate only cells within the cropped active bounding box
             for (int y = minY; y <= maxY; y++)
             {
                 var row = y < rawRows.Length ? rawRows[y].TrimEnd('\r') : string.Empty;
@@ -251,7 +376,6 @@ namespace ShipEditor.UI
                 {
                     var cell = Instantiate(_cellTemplate, _layoutGrid.transform);
                     var img = cell.GetComponent<Image>();
-
                     bool isCellActive = x < row.Length && row[x] != '0' && row[x] != ' ';
 
                     cell.gameObject.SetActive(true);
@@ -269,17 +393,16 @@ namespace ShipEditor.UI
             item.Value.text = data.Value;
         }
 
+        // Collect component combat, defensive, and utility metrics
         public static IEnumerable<KeyValuePair<string, string>> GetDescription(IComponent component, ILocalization localization, LocalizationSettings settings)
         {
             var stats = component.GetStats();
 
-            // Armor and repair stats
             if (stats.ArmorPoints != 0)
                 yield return new KeyValuePair<string, string>("$HitPoints", FormatFloat(stats.ArmorPoints));
             if (stats.ArmorRepairRate > 0)
                 yield return new KeyValuePair<string, string>("$RepairRate", FormatFloat(stats.ArmorRepairRate));
 
-            // Energy systems
             if (!Mathf.Approximately(stats.EnergyPoints, 0))
                 yield return new KeyValuePair<string, string>("$Energy", FormatFloat(stats.EnergyPoints));
 
@@ -288,13 +411,11 @@ namespace ShipEditor.UI
             if (stats.EnergyRecharge > 0)
                 yield return new KeyValuePair<string, string>("$RechargeRate", FormatFloat(stats.EnergyRecharge));
 
-            // Shield systems
             if (!Mathf.Approximately(stats.ShieldPoints, 0))
                 yield return new KeyValuePair<string, string>("$ShieldPoints", FormatFloat(stats.ShieldPoints));
             if (!Mathf.Approximately(stats.ShieldRechargeRate, 0))
                 yield return new KeyValuePair<string, string>("$ShieldRechargeRate", FormatFloat(stats.ShieldRechargeRate));
 
-            // Engines and boosters
             if (stats.EnginePower != 0)
                 yield return new KeyValuePair<string, string>("$Velocity", FormatFloat(stats.EnginePower));
             if (stats.TurnRate != 0)
@@ -304,7 +425,6 @@ namespace ShipEditor.UI
             if (stats.TurnRateMultiplier.HasValue)
                 yield return new KeyValuePair<string, string>("$TurnRateModifier", stats.TurnRateMultiplier.ToString());
 
-            // Weapon boosters
             if (stats.WeaponDamageMultiplier.HasValue)
                 yield return new KeyValuePair<string, string>("$DamageModifier", stats.WeaponDamageMultiplier.ToString());
             if (stats.WeaponFireRateMultiplier.HasValue)
@@ -322,7 +442,6 @@ namespace ShipEditor.UI
             if (stats.WeaponRecoilMultiplier.HasValue)
                 yield return new KeyValuePair<string, string>("$WeaponRecoilModifier", stats.WeaponRecoilMultiplier.ToString());
 
-            // Active devices boosters
             if (stats.DeviceCooldownMultiplier.HasValue)
                 yield return new KeyValuePair<string, string>("$DeviceCooldownModifier", stats.DeviceCooldownMultiplier.ToString());
             if (stats.DevicePowerMultiplier.HasValue)
@@ -330,7 +449,6 @@ namespace ShipEditor.UI
             if (stats.DeviceRangeMultiplier.HasValue)
                 yield return new KeyValuePair<string, string>("$DeviceRangeModifier", stats.DeviceRangeMultiplier.ToString());
 
-            // Cooldown delay modifiers
             if (stats.ArmorRepairCooldownMultiplier.HasValue)
                 yield return new KeyValuePair<string, string>("$ArmorRepairCooldownModifier", stats.ArmorRepairCooldownMultiplier.ToString());
             if (stats.EnergyRechargeCooldownMultiplier.HasValue)
@@ -338,11 +456,9 @@ namespace ShipEditor.UI
             if (stats.ShieldRechargeCooldownMultiplier.HasValue)
                 yield return new KeyValuePair<string, string>("$ShieldRechargeCooldownModifier", stats.ShieldRechargeCooldownMultiplier.ToString());
 
-            // Autopilot presence
             if (stats.Autopilot)
                 yield return new KeyValuePair<string, string>("$Autopilot", "+");
 
-            // Ramming and energy absorption
             if (stats.RammingDamage != 0)
                 yield return new KeyValuePair<string, string>("$RamDamage", FormatFloat(stats.RammingDamage));
             if (stats.RammingDamageMultiplier.HasValue)
@@ -350,7 +466,6 @@ namespace ShipEditor.UI
             if (stats.EnergyAbsorption != 0)
                 yield return new KeyValuePair<string, string>("$DamageAbsorption", FormatFloat(stats.EnergyAbsorption));
 
-            // Damage resistances
             if (stats.KineticResistance != 0)
                 yield return new KeyValuePair<string, string>("$KineticDamageResistance", FormatFloat(stats.KineticResistance));
             if (stats.ThermalResistance != 0)
@@ -358,31 +473,27 @@ namespace ShipEditor.UI
             if (stats.EnergyResistance != 0)
                 yield return new KeyValuePair<string, string>("$EnergyDamageResistance", FormatFloat(stats.EnergyResistance));
 
-            // Drone systems
             if (stats.DroneDamageMultiplier.HasValue)
-                yield return new KeyValuePair<string, string>("$DroneDamageModifier", stats.DroneDamageMultiplier.ToString());
+                yield return new KeyValuePair<string, string>("$DroneDamageModifier", FormatPercent(stats.DroneDamageMultiplier.Value - 1f));
             if (stats.DroneDefenseMultiplier.HasValue)
-                yield return new KeyValuePair<string, string>("$DroneDefenseModifier", stats.DroneDefenseMultiplier.ToString());
+                yield return new KeyValuePair<string, string>("$DroneDefenseModifier", FormatPercent(stats.DroneDefenseMultiplier.Value - 1f));
             if (stats.DroneRangeMultiplier.HasValue)
-                yield return new KeyValuePair<string, string>("$DroneRangeModifier", stats.DroneRangeMultiplier.ToString());
+                yield return new KeyValuePair<string, string>("$DroneRangeModifier", FormatPercent(stats.DroneRangeMultiplier.Value - 1f));
             if (stats.DroneSpeedMultiplier.HasValue)
-                yield return new KeyValuePair<string, string>("$DroneSpeedModifier", stats.DroneSpeedMultiplier.ToString());
+                yield return new KeyValuePair<string, string>("$DroneSpeedModifier", FormatPercent(stats.DroneSpeedMultiplier.Value - 1f));
             if (stats.DroneReconstructionSpeed > 0)
                 yield return new KeyValuePair<string, string>("$DroneReconstructionTime", (1f / stats.DroneReconstructionSpeed).ToString("N1"));
             if (stats.DroneReconstructionTimeMultiplier.HasValue)
                 yield return new KeyValuePair<string, string>("$DroneReconstructionTime", stats.DroneReconstructionTimeMultiplier.ToString());
 
-            // Turrets and weapon platforms
             var platform = new DummyPlatform();
             component.UpdateWeaponPlatform(platform);
             if (platform.TurnRate != 0)
                 yield return new KeyValuePair<string, string>("$TurretTurnRate", localization.GetString("$ValuePerSecond", FormatFloat(platform.TurnRate)));
 
-            // Display turret auto-aiming arc
             if (platform.AutoAimingArc > 0)
                 yield return new KeyValuePair<string, string>("$AutoAimingArc", platform.AutoAimingArc.ToString("0") + "°");
 
-            // Display active device statistics
             if (component.Devices.Any())
             {
                 foreach (var item in GetDeviceDescription(component.Devices.First()))
@@ -396,8 +507,7 @@ namespace ShipEditor.UI
                 foreach (var item in GetWeaponDescription(info, settings))
                     yield return item;
             }
-
-            if (component.WeaponsObsolete.Any())
+            else if (component.WeaponsObsolete.Any())
             {
                 var data = component.WeaponsObsolete.First();
                 var info = new WeaponDamageCalculator().CalculateWeaponDamage(data.Key, data.Value);
@@ -405,8 +515,9 @@ namespace ShipEditor.UI
                     yield return item;
             }
 
+            // Drone bay overview without redundant weapon list
             if (component.DroneBays.Any())
-                foreach (var item in GetDroneBayDescription(component.DroneBays.First(), localization))
+                foreach (var item in GetDroneBayDescription(component.DroneBays.First()))
                     yield return item;
 
             if (!Mathf.Approximately(stats.Weight + stats.WeightReduction, 0))
@@ -495,7 +606,6 @@ namespace ShipEditor.UI
                     yield return new KeyValuePair<string, string>("$WeaponEnergy", data.EnergyCost.ToString(_floatFormat));
             }
 
-            // Cooldown rendering is independent of energy cost
             if (data.FireRate > 0)
             {
                 yield return new KeyValuePair<string, string>("$WeaponCooldown", (1.0f / data.FireRate).ToString(_floatFormat));
@@ -507,35 +617,16 @@ namespace ShipEditor.UI
                 yield return new KeyValuePair<string, string>("$WeaponVelocity", data.BulletVelocity.ToString(_floatFormat));
             if (data.Impulse > 0)
                 yield return new KeyValuePair<string, string>("$WeaponImpulse", (data.Impulse * 1000).ToString(_floatFormat));
+
+            // Separate projectile width/caliber from explosion AoE
+            if (data.ProjectileSize > 0)
+                yield return new KeyValuePair<string, string>("$WeaponProjectileSize", data.ProjectileSize.ToString(_floatFormat));
+
             if (data.AreaOfEffect > 0)
                 yield return new KeyValuePair<string, string>("$WeaponArea", data.AreaOfEffect.ToString(_floatFormat));
         }
 
-        private static IEnumerable<KeyValuePair<string, string>> GetWeaponDamageText(Ammunition ammunition, WeaponStatModifier statModifier, ILocalization localization)
-        {
-            while (true)
-            {
-                var effect = ammunition.Effects.FirstOrDefault(item => item.Type == ImpactEffectType.Damage || item.Type == ImpactEffectType.SiphonHitPoints);
-                if (effect?.Power > 0)
-                {
-                    yield return new KeyValuePair<string, string>("$DamageType", localization.GetString(effect.DamageType.Name()));
-                    var damage = effect.Power * statModifier.DamageMultiplier.Value;
-                    yield return new KeyValuePair<string, string>(ammunition.ImpactType == BulletImpactType.DamageOverTime ? "$WeaponDPS" : "$WeaponDamage", damage.ToString(_floatFormat));
-                    yield break;
-                }
-
-                var trigger = ammunition.Triggers.OfType<BulletTrigger_SpawnBullet>().FirstOrDefault();
-                if (trigger?.Ammunition != null)
-                {
-                    ammunition = trigger.Ammunition;
-                    continue;
-                }
-
-                break;
-            }
-        }
-
-        private static IEnumerable<KeyValuePair<string, string>> GetDroneBayDescription(KeyValuePair<DroneBayStats, ShipBuild> droneBay, ILocalization localization)
+        private static IEnumerable<KeyValuePair<string, string>> GetDroneBayDescription(KeyValuePair<DroneBayStats, ShipBuild> droneBay)
         {
             yield return new KeyValuePair<string, string>("$DroneBayCapacity", droneBay.Key.Capacity.ToString());
             if (!Mathf.Approximately(droneBay.Key.DamageMultiplier, 1f))
@@ -546,10 +637,6 @@ namespace ShipEditor.UI
                 yield return new KeyValuePair<string, string>("$DroneSpeedModifier", FormatPercent(droneBay.Key.SpeedMultiplier - 1f));
 
             yield return new KeyValuePair<string, string>("$DroneRangeModifier", droneBay.Key.Range.ToString("N"));
-
-            var weapon = droneBay.Value.Components.Select(Constructor.ComponentExtensions.FromDatabase).FirstOrDefault(item => item.Info.Data.Weapon != null);
-            if (weapon != null)
-                yield return new KeyValuePair<string, string>("$WeaponType", localization.GetString(weapon.Info.Data.Name));
         }
 
         private static string FormatInt(int value)

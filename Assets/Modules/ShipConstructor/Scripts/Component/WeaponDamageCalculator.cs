@@ -1,5 +1,6 @@
 ﻿using GameDatabase.DataModel;
 using GameDatabase.Enums;
+using UnityEngine;
 
 namespace Constructor.Component
 {
@@ -36,6 +37,7 @@ namespace Constructor.Component
                 Range = ammunition.Range > 0 ? ammunition.Range : ammunition.LifeTime * ammunition.Velocity,
                 BulletVelocity = ammunition.Velocity,
                 Impulse = ammunition.Impulse,
+                ProjectileSize = 0f,
                 AreaOfEffect = ammunition.AreaOfEffect,
             };
         }
@@ -45,7 +47,6 @@ namespace Constructor.Component
             var damageMultiplier = statModifier.DamageMultiplier.Value;
             var fireRate = weapon.FireRate * statModifier.FireRateMultiplier.Value;
             var isDot = IsDotWeapon(weapon, ammunition);
-            // TODO: statModifier.LifetimeMultiplier.Value
 
             var damage = isDot ? new DamageInfo() : GetDPS(ammunition, 1.0f);
             var dps = isDot ? GetContinuousDPS(ammunition) : GetDPS(ammunition, fireRate);
@@ -71,6 +72,7 @@ namespace Constructor.Component
                 Range = ammunition.Body.Range * statModifier.RangeMultiplier.Value,
                 BulletVelocity = ammunition.Body.Velocity * statModifier.VelocityMultiplier.Value,
                 Impulse = ammunition.Body.Weight * statModifier.WeightMultiplier.Value,
+                ProjectileSize = ammunition.Body.Size,
                 AreaOfEffect = GetAoE(ammunition) * statModifier.AoeRadiusMultiplier.Value,
             };
         }
@@ -80,7 +82,7 @@ namespace Constructor.Component
             if (item.Weapon == null)
                 throw new System.ArgumentException("CalculateWeaponDamage: component is not weapon");
 
-            if (item.Ammunition != null) 
+            if (item.Ammunition != null)
                 return CalculateWeaponDamage(item.Weapon.Stats, item.Ammunition, new WeaponStatModifier());
             else
                 return CalculateWeaponDamage(item.Weapon.Stats, item.AmmunitionObsolete.Stats);
@@ -98,45 +100,6 @@ namespace Constructor.Component
 
             return true;
         }
-
-        //private static void GetWeaponData(in WeaponStats weapon, out float fireRate, out float damageMultiplier)
-        //{
-        //    fireRate = weapon.FireRate;
-        //    damageMultiplier = 1.0f;
-
-        //    switch (weapon.WeaponClass)
-        //    {
-        //        case WeaponClass.Common:
-        //        case WeaponClass.Manageable:
-        //        case WeaponClass.RequiredCharging:
-        //            break;
-        //        case WeaponClass.MashineGun:
-        //            //fireRate = weapon.Magazine / (weapon.Magazine * MinCooldown + 1.0f / weapon.FireRate);
-        //            break;
-        //        case WeaponClass.MultiShot:
-        //            //damageMultiplier = weapon.Magazine;
-        //            break;
-        //        case WeaponClass.Continuous:
-        //            break;
-        //    }
-        //}
-
-        //private static bool IsHoming(AmmunitionClassObsolete ammunition)
-        //{
-        //    switch (ammunition)
-        //    {
-        //        case AmmunitionClassObsolete.Rocket:
-        //        case AmmunitionClassObsolete.AcidRocket:
-        //        case AmmunitionClassObsolete.HomingTorpedo:
-        //        case AmmunitionClassObsolete.HomingImmobilizer:
-        //        case AmmunitionClassObsolete.EmpMissile:
-        //        case AmmunitionClassObsolete.ClusterMissile:
-        //        case AmmunitionClassObsolete.HomingCarrier:
-        //            return true;
-        //        default:
-        //            return false;
-        //    }
-        //}
 
         private DamageInfo GetDamage(ref AmmunitionObsoleteStats ammunition)
         {
@@ -192,10 +155,10 @@ namespace Constructor.Component
                 case AmmunitionClassObsolete.AcidRocket:
                     return damage.Add(ammunition.Damage * ammunition.LifeTime * fireRate, ammunition.DamageType);
                 case AmmunitionClassObsolete.Fireworks:
-                    return damage.Add(ammunition.Damage * /*20 **/ fireRate, ammunition.DamageType);
+                    return damage.Add(ammunition.Damage * fireRate, ammunition.DamageType);
                 case AmmunitionClassObsolete.ClusterMissile:
                 case AmmunitionClassObsolete.FragBomb:
-                    return damage.Add(ammunition.Damage * /*20 **/ fireRate, ammunition.DamageType);
+                    return damage.Add(ammunition.Damage * fireRate, ammunition.DamageType);
                 case AmmunitionClassObsolete.Carrier:
                 case AmmunitionClassObsolete.HomingCarrier:
                     return damage.Add(ammunition.Damage * fireRate, ammunition.DamageType);
@@ -238,11 +201,10 @@ namespace Constructor.Component
                 if (trigger.MaxNestingLevel > 0 && nestingLevel > trigger.MaxNestingLevel) continue;
 
                 var bulletPower = trigger.PowerMultiplier > 0 ? trigger.PowerMultiplier : 1.0f;
-                var quantity = trigger.Quantity > 0 ? trigger.Quantity : 1;
                 var spawnRate = GetSpawnRate(ammunition, trigger, fireRate);
 
                 if (trigger.Ammunition != null)
-                    damage += GetDPS(trigger.Ammunition, bulletPower /** quantity*/, spawnRate, nestingLevel + 1) * powerMultiplier;
+                    damage += GetDPS(trigger.Ammunition, bulletPower, spawnRate, nestingLevel + 1) * powerMultiplier;
             }
 
             return damage;
@@ -280,7 +242,6 @@ namespace Constructor.Component
                         break;
                     case ImpactEffectType.Repair:
                         impactDamage.Repair += effect.Power * powerMultiplier;
-                        //impactDamage.Add(effect.Power * effect.Factor * powerMultiplier, effect.DamageType);
                         break;
                     case ImpactEffectType.DrainShield:
                         impactDamage.Shield += effect.Power * powerMultiplier;
@@ -317,10 +278,6 @@ namespace Constructor.Component
 
             switch (ammunition.ImpactType)
             {
-                //case EditorDatabase.Enums.BulletImpactType.HitFirstTarget:
-                //case EditorDatabase.Enums.BulletImpactType.HitAllTargets:
-                //    damage += impactDamage;
-                //    break;
                 case BulletImpactType.DamageOverTime:
                     damage += impactDamage;
                     break;
@@ -349,7 +306,6 @@ namespace Constructor.Component
                         break;
                     case ImpactEffectType.Repair:
                         impactDamage.Repair += effect.Power * powerMultiplier;
-                        //impactDamage.Add(effect.Power * effect.Factor * powerMultiplier, effect.DamageType);
                         break;
                     case ImpactEffectType.DrainShield:
                         impactDamage.Shield += effect.Power * powerMultiplier;
@@ -404,28 +360,29 @@ namespace Constructor.Component
 
             float aoe = 0;
             var shape = ammunition.Body.BulletPrefab != null ? ammunition.Body.BulletPrefab.Shape : BulletShape.Mine;
-            switch (shape)
+
+            if (nestingLevel > 0)
             {
-                case BulletShape.Wave:
-                case BulletShape.BlackHole:
-                case BulletShape.CircularSaw:
-                    aoe = ammunition.Body.Size;
-                    break;
-                case BulletShape.Mine:
-                case BulletShape.Projectile:
-                case BulletShape.Spark:
-                case BulletShape.Rocket:
-                    if (nestingLevel > 0)
-                        aoe = UnityEngine.Mathf.Max(ammunition.Body.Range, ammunition.Body.Size);
-                    else if (ammunition.ImpactType != BulletImpactType.HitFirstTarget)
-                        aoe = ammunition.Body.Size;
-                    break;
-                case BulletShape.LaserBeam:
-                case BulletShape.EnergyBeam:
-                case BulletShape.LightningBolt:
-                    aoe = nestingLevel > 0 ? ammunition.Body.Range : 0;
-                    break;
-                //case BulletShape.Harpoon:
+                switch (shape)
+                {
+                    case BulletShape.LaserBeam:
+                    case BulletShape.EnergyBeam:
+                    case BulletShape.LightningBolt:
+                        aoe = ammunition.Body.Range;
+                        break;
+                    default:
+                        aoe = Mathf.Max(ammunition.Body.Range, ammunition.Body.Size * 0.5f);
+                        break;
+                }
+            }
+            else
+            {
+                switch (shape)
+                {
+                    case BulletShape.BlackHole:
+                        aoe = ammunition.Body.Size * 0.5f;
+                        break;
+                }
             }
 
             if (nestingLevel >= 100) return aoe;
@@ -435,10 +392,10 @@ namespace Constructor.Component
                 if (item.EffectType != BulletEffectType.SpawnBullet) continue;
                 var trigger = item.Create(this);
                 if (trigger.MaxNestingLevel > 0 && nestingLevel > trigger.MaxNestingLevel) continue;
-                
+
                 var sizeMultiplier = trigger.Size > 0 ? trigger.Size : 1.0f;
-                var spawnAoe = GetAoE(trigger.Ammunition, nestingLevel+1) * sizeMultiplier;
-                if (spawnAoe > aoe) 
+                var spawnAoe = GetAoE(trigger.Ammunition, nestingLevel + 1) * sizeMultiplier;
+                if (spawnAoe > aoe)
                     aoe = spawnAoe;
             }
 
@@ -448,11 +405,10 @@ namespace Constructor.Component
         public BulletTrigger_SpawnBullet Create(BulletTrigger_None content) { return null; }
         public BulletTrigger_SpawnBullet Create(BulletTrigger_PlaySfx content) { return null; }
         public BulletTrigger_SpawnBullet Create(BulletTrigger_SpawnBullet content) { return content; }
+        public BulletTrigger_Detonate content => null;
         public BulletTrigger_SpawnBullet Create(BulletTrigger_Detonate content) { return null; }
         public BulletTrigger_SpawnBullet Create(BulletTrigger_SpawnStaticSfx content) { return null; }
         public BulletTrigger_SpawnBullet Create(BulletTrigger_GravityField content) { return null; }
-
-        private const float MinCooldown = 0.04f;
 
         public struct DamageInfo
         {
@@ -472,9 +428,10 @@ namespace Constructor.Component
                 return this;
             }
 
-            public static DamageInfo operator+(DamageInfo first, DamageInfo second)
+            public static DamageInfo operator +(DamageInfo first, DamageInfo second)
             {
-                return new DamageInfo {
+                return new DamageInfo
+                {
                     Kinetic = first.Kinetic + second.Kinetic,
                     Energy = first.Energy + second.Energy,
                     Heat = first.Heat + second.Heat,
@@ -516,7 +473,7 @@ namespace Constructor.Component
             public WeaponSpecialEffect Effects;
         }
 
-        public struct WeaponInfo 
+        public struct WeaponInfo
         {
             public DamageInfo Damage;
             public DamageInfo Dps;
@@ -528,6 +485,7 @@ namespace Constructor.Component
             public float Range;
             public float BulletVelocity;
             public float Impulse;
+            public float ProjectileSize;
             public float AreaOfEffect;
             public float TotalDamage => Damage.Total > 0 ? Damage.Total : Dps.Total;
             public WeaponSpecialEffect Effects => Damage.Effects | Dps.Effects;

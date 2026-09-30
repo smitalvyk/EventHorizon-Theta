@@ -32,6 +32,6 @@ namespace GameDatabase.Serializable
 		public SoundTrackSerializable[] CustomSoundtrack;
 		public int EnemyShipMaxCount = 24;
 		public int EnemyShipScrollAhead = 10;
-		public int EnemyShipIdentifiedCount = 1;
+		public int EnemyShipIdentifiedCount = 10;
 	}
 }

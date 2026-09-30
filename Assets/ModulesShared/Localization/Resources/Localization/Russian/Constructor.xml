@@ -132,11 +132,11 @@
     <string name="EmptySlot4">Свободная ячейка для корабля класса титан</string>
     <string name="ShipClass">Класс:</string>
     <string name="ClassDrone">Дрон</string>
-    <string name="ClassFrigate">фрегат</string>
-    <string name="ClassDestroyer">эсминец</string>
-    <string name="ClassCruiser">крейсер</string>
-    <string name="ClassBattleship">линкор</string>
-    <string name="ClassTitan">титан</string>
+    <string name="ClassFrigate">Фрегат</string>
+    <string name="ClassDestroyer">Эсминец</string>
+    <string name="ClassCruiser">Крейсер</string>
+    <string name="ClassBattleship">Линкор</string>
+    <string name="ClassTitan">Титан</string>
     <string name="ClassStarbase">Станция</string>
     <string name="GroupAll">Все модули</string>
     <string name="GroupWeapon">Оружие</string>

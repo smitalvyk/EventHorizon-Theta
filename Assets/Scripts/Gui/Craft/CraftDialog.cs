@@ -1,16 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using CommonComponents;
+﻿using CommonComponents;
 using DataModel.Technology;
-using Economy.ItemType;
 using Economy.Products;
 using Galaxy;
-using GameDatabase;
 using GameDatabase.DataModel;
 using GameDatabase.Enums;
-using GameDatabase.Model;
 using GameServices.Database;
 using GameServices.Gui;
 using GameServices.Player;
@@ -21,6 +14,9 @@ using Services.Gui;
 using Services.Localization;
 using Services.Messenger;
 using Services.ObjectPool;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 using Zenject;
@@ -29,22 +25,9 @@ namespace Gui.Craft
 {
     public class CraftDialog : MonoBehaviour
     {
-        public enum TechCategory
-        {
-            Weapon = 0,
-            Armor = 1,
-            Energy = 2,
-            Engine = 3,
-            Drone = 4,
-            Ship = 5,
-            Satellite = 6,
-            Other = 7
-        }
-
         [Inject] private readonly ISoundPlayer _soundPlayer;
         [Inject] private readonly PlayerResources _playerResources;
         [Inject] private readonly IRandom _random;
-        [Inject] private readonly ItemTypeFactory _factory;
         [Inject] private readonly ILocalization _localization;
         [Inject] private readonly Research _research;
         [Inject] private readonly ITechnologies _technologies;
@@ -75,15 +58,26 @@ namespace Gui.Craft
         [SerializeField] private Text _techsText;
         [SerializeField] private Image _techsIcon;
 
-        [Header("Header Info Button")]
+        [Header("Sorting Bar (Top of TechList)")]
+        [SerializeField] private GameObject _sortingButton;
+        [SerializeField] private Text _sortTitleText;
+        [SerializeField] private Text _sortModeText;
+
+        [Header("Navigation: Category, Back & Info")]
+        [SerializeField] private GameObject _categoryTemplate;
+        [SerializeField] private GameObject _buttonsBar;
+        [SerializeField] private Button _backButton;
         [SerializeField] private Button _infoButton;
+
+        [Header("Category Layout")]
+        [SerializeField] private float _categorySpacing = -16f;
 
         [Header("Free Stars Tech Panel")]
         [SerializeField] private GameObject _freeTechsPanel;
         [SerializeField] private Text _freeTechsText;
         [SerializeField] private Image _freeTechsIcon;
 
-        [Header("Category Icons (Manual Assignment)")]
+        [Header("Category Icons")]
         [SerializeField] private Sprite _weaponCategoryIcon;
         [SerializeField] private Sprite _armorCategoryIcon;
         [SerializeField] private Sprite _energyCategoryIcon;
@@ -93,16 +87,13 @@ namespace Gui.Craft
         [SerializeField] private Sprite _satelliteCategoryIcon;
         [SerializeField] private Sprite _otherCategoryIcon;
 
-        [Header("Back Button Icon")]
-        [SerializeField] private Sprite _backButtonIcon;
-
         private ScrollRect _scrollRect;
         private RectTransform _itemsContent;
         private RectTransform _categoryContent;
-        private GameObject _backButton;
-        private float _singleItemHeight = 72f;
         private Dictionary<TechCategory, List<ITechnology>> _categorizedTechs = new Dictionary<TechCategory, List<ITechnology>>();
         private TechCategory? _currentCategory = null;
+        private SortMode _currentSortMode = SortMode.Default;
+        private Faction _freeStarsFaction;
 
         public void OnItemCreated(IProduct item)
         {
@@ -125,30 +116,25 @@ namespace Gui.Craft
 
         public void InfoButtonClicked()
         {
-            if (_selectedTech == null)
-                return;
+            if (_selectedTech == null) return;
 
-            _soundPlayer.Play(_buySound);
-
-            var product = ExtractProductFromObject(_commonCraftPanel) ??
-                          ExtractProductFromObject(_improvedCraftPanel);
-
-            if (product == null)
+            IProduct product = null;
+            if (_selectedTech is TechnologyBase techBase)
             {
-                var itemType = ResolveActualItemType(_selectedTech);
-                if (itemType != null)
+                try
                 {
-                    product = CreateProduct(itemType);
+                    product = techBase.CreateItem(CraftItemQuality.Common, null);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning("CraftDialog: Failed to create preview item: " + ex.Message);
                 }
             }
 
             if (product != null)
             {
                 _helper.ShowItemInfoWindow(product);
-                return;
             }
-
-            Debug.LogWarning("CraftDialog: Failed to resolve item stats for tech: " + _selectedTech);
         }
 
         public void InitializeWindow(WindowArgs args)
@@ -166,40 +152,121 @@ namespace Gui.Craft
             }
 
             EnsureFreeStarsFaction();
-            EnsureUiBindings();
+            EnsureUiReferences();
             EnsureNavigationContainers();
-
-            if (_infoButton != null)
-            {
-                _infoButton.onClick.RemoveAllListeners();
-                _infoButton.onClick.AddListener(InfoButtonClicked);
-            }
+            EnsureSortButton();
+            EnsureButtonsBar();
 
             var color = _faction.Color;
             _factionText.text = _localization.GetString(_faction.Name);
             _factionIcon.color = _faction.Color;
-
             _techsIcon.color = color;
             _levelText.text = _level.ToString();
 
-            // Collect researched technologies (preserve DB order, keep Free Stars at bottom)
-            IEnumerable<ITechnology> techs = _technologies.All.ForWorkshop(_faction).Where(_research.IsTechResearched);
-
-            if (!IsFreeStarsBase() && _freeStarsFaction != null)
-            {
-                var freeTechs = _technologies.All.ForWorkshop(_freeStarsFaction).Where(_research.IsTechResearched);
-                techs = techs.Concat(freeTechs).Distinct();
-            }
+            // Load workshop technologies
+            var techs = _technologies.All.ForWorkshop(_faction).Where(_research.IsTechResearched).ToList();
 
             _categorizedTechs = techs
-                .GroupBy(GetTechCategory)
-                .ToDictionary(
-                    g => g.Key,
-                    g => g.OrderBy(t => IsFreeStars(t.Faction) ? 1 : 0).ToList()
-                );
+                .GroupBy(t => t.GetCategory())
+                .ToDictionary(g => g.Key, g => g.ToList());
 
             UpdateResources();
+            AdjustScrollbarBounds();
             ShowCategoriesView();
+        }
+
+        private void EnsureFreeStarsFaction()
+        {
+            if (_freeStarsFaction != null) return;
+
+            if (_starMap != null)
+            {
+                try
+                {
+                    var homeStar = _starMap.GetStarById(0);
+                    if (homeStar.Region != null)
+                        _freeStarsFaction = homeStar.Region.Faction;
+                }
+                catch { }
+            }
+
+            if (_freeStarsFaction == null)
+            {
+                _freeStarsFaction = Faction.Empty;
+            }
+        }
+
+        private void UpdateResources()
+        {
+            if (!gameObject.activeSelf) return;
+
+            _creditsText.text = _playerResources.Money.ToString();
+            _starsText.text = _playerResources.Stars.ToString();
+
+            int factionPoints = _research.GetAvailablePoints(_faction);
+            _techsText.text = factionPoints.ToString();
+
+            EnsureFreeStarsFaction();
+
+            bool isAlienBase = _faction != null &&
+                               _faction != Faction.Empty &&
+                               !_faction.Equals(_freeStarsFaction) &&
+                               !_faction.Id.Equals(_freeStarsFaction.Id);
+
+            if (_freeTechsPanel != null)
+            {
+                if (isAlienBase)
+                {
+                    int freePoints = Math.Max(
+                        _research.GetAvailablePoints(_freeStarsFaction),
+                        _research.GetAvailablePoints(Faction.Empty)
+                    );
+
+                    _freeTechsPanel.SetActive(true);
+
+                    if (_freeTechsText != null)
+                        _freeTechsText.text = freePoints.ToString();
+
+                    if (_freeTechsIcon != null)
+                        _freeTechsIcon.color = Color.white;
+                }
+                else
+                {
+                    _freeTechsPanel.SetActive(false);
+                }
+            }
+        }
+
+        private void UpdateTechnology(ViewModel.CraftListItem item, ITechnology tech)
+        {
+            item.InitializeForCraft(tech, _level);
+
+            var texts = item.GetComponentsInChildren<Text>(true);
+            if (texts.Length > 1 && texts[1] != null)
+            {
+                texts[1].verticalOverflow = VerticalWrapMode.Overflow;
+
+                string factionLabel = _localization.GetString("$Faction");
+                if (string.IsNullOrEmpty(factionLabel) || factionLabel.StartsWith("$"))
+                    factionLabel = "$Faction";
+
+                string factionName = TechCategoryHelper.GetLocalizedFactionName(tech.Faction, _localization);
+                string factionLine = $"{factionLabel}: {factionName}".ToUpper();
+
+                string typeLine;
+                if (tech is ShipTechnology shipTech)
+                {
+                    string shipLabel = _localization.GetString("$Ship");
+                    string shipClass = TechCategoryHelper.GetShipClassName(shipTech.Ship, _localization);
+                    typeLine = !string.IsNullOrEmpty(shipClass) ? $"{shipLabel} ({shipClass})" : shipLabel;
+                }
+                else
+                {
+                    typeLine = tech.GetDescription(_localization);
+                }
+
+                texts[1].text = $"{factionLine}\n{typeLine}".ToUpper();
+            }
         }
 
         private void ShowCategoriesView()
@@ -208,11 +275,9 @@ namespace Gui.Craft
             _selectedTech = null;
             UpdateTechPanel();
 
-            if (_backButton != null)
-                _backButton.SetActive(false);
-
-            if (_technologyList != null)
-                _technologyList.gameObject.SetActive(false);
+            if (_sortingButton != null) _sortingButton.SetActive(false);
+            if (_buttonsBar != null) _buttonsBar.SetActive(false);
+            if (_technologyList != null) _technologyList.gameObject.SetActive(false);
 
             if (_categoryContent != null)
             {
@@ -235,13 +300,25 @@ namespace Gui.Craft
             _selectedTech = null;
             UpdateTechPanel();
 
-            if (_categoryContent != null)
-                _categoryContent.gameObject.SetActive(false);
+            if (_categoryContent != null) _categoryContent.gameObject.SetActive(false);
+
+            if (_sortingButton != null)
+            {
+                _sortingButton.SetActive(true);
+                UpdateSortButtonDisplay();
+            }
+
+            if (_buttonsBar != null) _buttonsBar.SetActive(true);
 
             if (_backButton != null)
             {
-                _backButton.SetActive(true);
+                _backButton.gameObject.SetActive(true);
                 UpdateBackButtonDisplay(category);
+            }
+
+            if (_infoButton != null)
+            {
+                _infoButton.gameObject.SetActive(false);
             }
 
             if (_technologyList != null)
@@ -254,27 +331,26 @@ namespace Gui.Craft
                 }
 
                 var list = _categorizedTechs.ContainsKey(category) ? _categorizedTechs[category] : new List<ITechnology>();
+                var sortedList = TechSorter.Sort(list, _currentSortMode, _localization);
+
                 _technologyList.transform.InitializeElements<ViewModel.CraftListItem, ITechnology>(
-                    list, UpdateTechnology, _gameObjectFactory);
+                    sortedList, UpdateTechnology, _gameObjectFactory);
 
                 _techGroup.SetAllTogglesOff();
             }
 
             RebuildParentLayout();
-            _soundPlayer.Play(_buySound);
         }
 
         private void BuildCategoryButtons()
         {
-            if (_categoryContent == null)
-                return;
+            if (_categoryContent == null || _categoryTemplate == null) return;
+
+            var vlg = _categoryContent.GetComponent<VerticalLayoutGroup>();
+            if (vlg != null) vlg.spacing = _categorySpacing;
 
             foreach (Transform child in _categoryContent)
                 Destroy(child.gameObject);
-
-            var template = _itemsContent != null && _itemsContent.childCount > 0 ? _itemsContent.GetChild(0).gameObject : null;
-            if (template == null)
-                return;
 
             foreach (TechCategory category in Enum.GetValues(typeof(TechCategory)))
             {
@@ -282,20 +358,19 @@ namespace Gui.Craft
                     continue;
 
                 int count = _categorizedTechs[category].Count;
-                var catCard = Instantiate(template, _categoryContent);
+                var catCard = Instantiate(_categoryTemplate, _categoryContent);
                 catCard.name = $"Category_{category}";
                 catCard.SetActive(true);
 
-                // Remove Focus highlight object completely so it never activates on categories
-                var focus = catCard.transform.Find("Focus");
-                if (focus != null)
-                    DestroyImmediate(focus.gameObject);
-
-                var vm = catCard.GetComponent<ViewModel.CraftListItem>();
-                if (vm != null) DestroyImmediate(vm);
-
                 var toggle = catCard.GetComponent<Toggle>();
-                if (toggle != null) DestroyImmediate(toggle);
+                if (toggle != null)
+                {
+                    toggle.group = null;
+                    DestroyImmediate(toggle);
+                }
+
+                var focus = catCard.transform.Find("Focus");
+                if (focus != null) focus.gameObject.SetActive(false);
 
                 var btn = catCard.GetComponent<Button>() ?? catCard.AddComponent<Button>();
                 var targetCat = category;
@@ -303,231 +378,32 @@ namespace Gui.Craft
                 btn.onClick.AddListener(() => ShowCategoryItemsView(targetCat));
 
                 var texts = catCard.GetComponentsInChildren<Text>(true);
-                for (int i = 0; i < texts.Length; i++)
+                if (texts.Length > 0 && texts[0] != null)
+                    texts[0].text = category.GetTitle(_localization);
+                if (texts.Length > 1 && texts[1] != null)
+                    texts[1].text = _localization.GetString("$AvailableBlueprints", count);
+
+                Image icon = catCard.transform.Find("Left/Icon")?.GetComponent<Image>()
+                          ?? catCard.transform.Find("Left/Image")?.GetComponent<Image>()
+                          ?? catCard.transform.Find("Icon")?.GetComponent<Image>()
+                          ?? catCard.GetComponentInChildren<Image>();
+
+                if (icon != null)
                 {
-                    if (i == 0)
+                    var sprite = GetCategorySprite(category);
+                    if (sprite != null)
                     {
-                        texts[i].text = GetCategoryTitle(category);
-                        texts[i].gameObject.SetActive(true);
-                    }
-                    else if (i == 1)
-                    {
-                        texts[i].text = _localization.GetString("$AvailableBlueprints", count);
-                        texts[i].gameObject.SetActive(true);
+                        icon.sprite = sprite;
+                        icon.overrideSprite = sprite;
+                        icon.preserveAspect = true;
+                        icon.gameObject.SetActive(true);
                     }
                     else
                     {
-                        texts[i].text = string.Empty;
-                        texts[i].gameObject.SetActive(false);
+                        Debug.LogWarning($"[CraftDialog] Sprite for category '{category}' is not assigned in inspector.");
                     }
                 }
-
-                var icon = GetItemIcon(catCard);
-                if (icon != null)
-                {
-                    ApplyThemedIcon(icon, GetCategorySprite(category));
-                }
             }
-        }
-
-        private void EnsureNavigationContainers()
-        {
-            if (_categoryContent != null)
-                return;
-
-            _itemsContent = _technologyList.GetComponent<RectTransform>();
-            _scrollRect = _technologyList.GetComponentInParent<ScrollRect>();
-
-            if (_scrollRect == null || _itemsContent == null)
-                return;
-
-            if (_scrollRect.transform.parent != null)
-            {
-                var listLayout = _scrollRect.transform.parent.GetComponent<VerticalLayoutGroup>();
-                if (listLayout != null)
-                {
-                    listLayout.childControlHeight = true;
-                    listLayout.childForceExpandHeight = false;
-                }
-            }
-
-            var template = _itemsContent.childCount > 0 ? _itemsContent.GetChild(0).gameObject : null;
-            if (template != null)
-            {
-                var tr = template.GetComponent<RectTransform>();
-                if (tr != null && tr.rect.height > 10)
-                    _singleItemHeight = tr.rect.height;
-
-                var tle = template.GetComponent<LayoutElement>();
-                if (tle != null && tle.preferredHeight > 10)
-                    _singleItemHeight = tle.preferredHeight;
-            }
-
-            var catGo = new GameObject("CategoryContent", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
-            catGo.transform.SetParent(_scrollRect.viewport != null ? _scrollRect.viewport : _scrollRect.transform, false);
-            _categoryContent = catGo.GetComponent<RectTransform>();
-            _categoryContent.anchorMin = _itemsContent.anchorMin;
-            _categoryContent.anchorMax = _itemsContent.anchorMax;
-            _categoryContent.pivot = _itemsContent.pivot;
-            _categoryContent.sizeDelta = _itemsContent.sizeDelta;
-
-            var vlg = catGo.GetComponent<VerticalLayoutGroup>();
-            vlg.spacing = 8;
-            vlg.childControlWidth = true;
-            vlg.childControlHeight = true;
-            vlg.childForceExpandWidth = true;
-            vlg.childForceExpandHeight = false;
-
-            var csf = catGo.GetComponent<ContentSizeFitter>();
-            csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-            if (template != null && _scrollRect.transform.parent != null)
-            {
-                _backButton = Instantiate(template, _scrollRect.transform.parent);
-                _backButton.name = "BackButton";
-                _backButton.transform.SetSiblingIndex(_scrollRect.transform.GetSiblingIndex());
-
-                var backFocus = _backButton.transform.Find("Focus");
-                if (backFocus != null)
-                    DestroyImmediate(backFocus.gameObject);
-
-                var vm = _backButton.GetComponent<ViewModel.CraftListItem>();
-                if (vm != null) DestroyImmediate(vm);
-
-                var toggle = _backButton.GetComponent<Toggle>();
-                if (toggle != null) DestroyImmediate(toggle);
-
-                var btn = _backButton.GetComponent<Button>() ?? _backButton.AddComponent<Button>();
-                btn.onClick.RemoveAllListeners();
-                btn.onClick.AddListener(() =>
-                {
-                    _soundPlayer.Play(_buySound);
-                    ShowCategoriesView();
-                });
-
-                var le = _backButton.GetComponent<LayoutElement>() ?? _backButton.AddComponent<LayoutElement>();
-                le.minHeight = _singleItemHeight;
-                le.preferredHeight = _singleItemHeight;
-                le.flexibleHeight = 0f;
-                le.flexibleWidth = 1f;
-
-                var backRect = _backButton.GetComponent<RectTransform>();
-                backRect.sizeDelta = new Vector2(backRect.sizeDelta.x, _singleItemHeight);
-
-                var scrollLe = _scrollRect.GetComponent<LayoutElement>() ?? _scrollRect.gameObject.AddComponent<LayoutElement>();
-                scrollLe.flexibleHeight = 1f;
-
-                _backButton.SetActive(false);
-            }
-        }
-
-        private void UpdateBackButtonDisplay(TechCategory category)
-        {
-            if (_backButton == null) return;
-
-            var backFocus = _backButton.transform.Find("Focus");
-            if (backFocus != null)
-                DestroyImmediate(backFocus.gameObject);
-
-            var le = _backButton.GetComponent<LayoutElement>();
-            if (le != null)
-            {
-                le.minHeight = _singleItemHeight;
-                le.preferredHeight = _singleItemHeight;
-                le.flexibleHeight = 0f;
-            }
-
-            var backRect = _backButton.GetComponent<RectTransform>();
-            if (backRect != null)
-            {
-                backRect.sizeDelta = new Vector2(backRect.sizeDelta.x, _singleItemHeight);
-            }
-
-            var texts = _backButton.GetComponentsInChildren<Text>(true);
-            for (int i = 0; i < texts.Length; i++)
-            {
-                if (i == 0)
-                {
-                    texts[i].text = _localization.GetString("$BackToCategories");
-                    texts[i].gameObject.SetActive(true);
-                }
-                else if (i == 1)
-                {
-                    texts[i].text = _localization.GetString("$CurrentCategoryLabel", GetCategoryTitle(category));
-                    texts[i].gameObject.SetActive(true);
-                }
-                else
-                {
-                    texts[i].text = string.Empty;
-                    texts[i].gameObject.SetActive(false);
-                }
-            }
-
-            var icon = GetItemIcon(_backButton);
-            if (icon != null)
-            {
-                ApplyThemedIcon(icon, _backButtonIcon);
-            }
-        }
-
-        private void ApplyThemedIcon(Image icon, Sprite customSprite)
-        {
-            if (icon == null) return;
-
-            if (customSprite != null)
-                icon.sprite = customSprite;
-
-            icon.preserveAspect = true;
-
-            var themedImage = icon.GetComponent("ThemedImage");
-            if (themedImage != null)
-            {
-                var themeProp = themedImage.GetType().GetProperty("ThemeColor") ??
-                                themedImage.GetType().GetProperty("themeColor");
-                if (themeProp != null && themeProp.CanWrite)
-                {
-                    try
-                    {
-                        var enumType = themeProp.PropertyType;
-                        var val = Enum.Parse(enumType, "ButtonIcon");
-                        themeProp.SetValue(themedImage, val, null);
-                    }
-                    catch { }
-                }
-            }
-
-            icon.color = new Color(0.35f, 0.95f, 1f, 1f);
-            icon.gameObject.SetActive(true);
-        }
-
-        private void RebuildParentLayout()
-        {
-            if (_scrollRect != null && _scrollRect.transform.parent != null)
-            {
-                var parentRect = _scrollRect.transform.parent.GetComponent<RectTransform>();
-                if (parentRect != null)
-                {
-                    LayoutRebuilder.ForceRebuildLayoutImmediate(parentRect);
-                }
-            }
-        }
-
-        private Image GetItemIcon(GameObject itemObj)
-        {
-            if (itemObj == null) return null;
-
-            var iconTransform = itemObj.transform.Find("Icon") ?? itemObj.transform.Find("Image");
-            if (iconTransform != null)
-            {
-                var img = iconTransform.GetComponent<Image>();
-                if (img != null) return img;
-            }
-
-            var images = itemObj.GetComponentsInChildren<Image>(true);
-            if (images.Length > 1)
-                return images[1];
-
-            return images.FirstOrDefault();
         }
 
         private Sprite GetCategorySprite(TechCategory category)
@@ -545,91 +421,215 @@ namespace Gui.Craft
             }
         }
 
-        private string GetCategoryTitle(TechCategory category)
+        private void CycleSortMode()
         {
-            switch (category)
+            _currentSortMode = (SortMode)(((int)_currentSortMode + 1) % 5);
+            UpdateSortButtonDisplay();
+
+            if (_currentCategory.HasValue)
             {
-                case TechCategory.Weapon:
-                    return _localization.GetString("$GroupWeapon");
-                case TechCategory.Armor:
-                    return _localization.GetString("$GroupArmor");
-                case TechCategory.Energy:
-                    return _localization.GetString("$GroupEnergy");
-                case TechCategory.Engine:
-                    return _localization.GetString("$GroupEngines");
-                case TechCategory.Drone:
-                    return _localization.GetString("$GroupDrones");
-                case TechCategory.Ship:
-                    return _localization.GetString("$GroupShips");
-                case TechCategory.Satellite:
-                    return _localization.GetString("$GroupSatellites");
-                default:
-                    return _localization.GetString("$MenuSpecial");
+                ShowCategoryItemsView(_currentCategory.Value);
             }
         }
 
-        private void UpdateTechnology(ViewModel.CraftListItem item, ITechnology tech)
+        private void UpdateSortButtonDisplay()
         {
-            item.InitializeForCraft(tech, _level);
+            if (_sortTitleText != null)
+                _sortTitleText.text = _localization.GetString("$Sorting");
 
-            // Display ship class strictly on a new line
-            if (_currentCategory == TechCategory.Ship || GetTechCategory(tech) == TechCategory.Ship)
+            if (_sortModeText != null)
+                _sortModeText.text = TechSorter.GetModeTitle(_currentSortMode, _localization);
+        }
+
+        private void EnsureUiReferences()
+        {
+            _itemsContent = _technologyList.GetComponent<RectTransform>();
+            _scrollRect = _technologyList.GetComponentInParent<ScrollRect>();
+
+            var techList = _scrollRect != null ? _scrollRect.transform.parent : transform.Find("Content/TechList");
+
+            if (_categoryTemplate == null && _itemsContent != null)
             {
-                string shipClassName = GetShipClassName(tech);
-                if (!string.IsNullOrEmpty(shipClassName))
-                {
-                    var texts = item.GetComponentsInChildren<Text>(true);
-                    if (texts.Length > 1 && texts[1] != null)
-                    {
-                        texts[1].verticalOverflow = VerticalWrapMode.Overflow;
-                        string shipLabel = _localization.GetString("$Ship");
-                        if (string.IsNullOrEmpty(shipLabel) || shipLabel.StartsWith("$"))
-                            shipLabel = "КОРАБЛЬ";
+                var catTr = _itemsContent.Find("Category");
+                if (catTr != null) _categoryTemplate = catTr.gameObject;
+            }
 
-                        texts[1].text = $"{shipLabel}\n{shipClassName.ToUpper()}";
-                    }
+            if (_categoryTemplate != null) _categoryTemplate.SetActive(false);
+
+            if (_sortingButton == null && techList != null)
+            {
+                var sortTr = techList.Find("SortingButton");
+                if (sortTr != null) _sortingButton = sortTr.gameObject;
+            }
+
+            if (_buttonsBar == null && techList != null)
+            {
+                var barTr = techList.Find("ButtonsBar");
+                if (barTr != null) _buttonsBar = barTr.gameObject;
+            }
+
+            if (_buttonsBar != null)
+            {
+                if (_backButton == null) _backButton = _buttonsBar.transform.Find("BackButton")?.GetComponent<Button>();
+                if (_infoButton == null) _infoButton = _buttonsBar.transform.Find("InfoButton")?.GetComponent<Button>();
+            }
+
+            if (_freeTechsPanel == null)
+            {
+                var freeTr = transform.Find("Header/FreeTechPanel") ??
+                             transform.Find("Header/FreeTechsPanel") ??
+                             transform.Find("Header/FreePanel");
+                if (freeTr != null) _freeTechsPanel = freeTr.gameObject;
+            }
+
+            if (_freeTechsPanel != null)
+            {
+                if (_freeTechsText == null) _freeTechsText = _freeTechsPanel.GetComponentInChildren<Text>();
+                if (_freeTechsIcon == null) _freeTechsIcon = _freeTechsPanel.GetComponentInChildren<Image>();
+            }
+        }
+
+        private void EnsureButtonsBar()
+        {
+            if (_backButton != null)
+            {
+                _backButton.onClick.RemoveAllListeners();
+                _backButton.onClick.AddListener(ShowCategoriesView);
+            }
+
+            if (_infoButton != null)
+            {
+                _infoButton.onClick.RemoveAllListeners();
+                _infoButton.onClick.AddListener(InfoButtonClicked);
+                _infoButton.gameObject.SetActive(false);
+            }
+        }
+
+        private void EnsureSortButton()
+        {
+            if (_sortingButton == null) return;
+
+            _sortingButton.transform.SetSiblingIndex(0);
+
+            if (_sortTitleText == null)
+            {
+                var left = _sortingButton.transform.Find("Left/Name") ?? _sortingButton.transform.Find("Left");
+                if (left != null) _sortTitleText = left.GetComponentInChildren<Text>();
+            }
+
+            if (_sortModeText == null)
+            {
+                var right = _sortingButton.transform.Find("Right/Name") ?? _sortingButton.transform.Find("Right");
+                if (right != null) _sortModeText = right.GetComponentInChildren<Text>();
+            }
+
+            var toggle = _sortingButton.GetComponent<Toggle>();
+            if (toggle != null)
+            {
+                toggle.group = null;
+                DestroyImmediate(toggle);
+            }
+
+            var btn = _sortingButton.GetComponent<Button>() ?? _sortingButton.AddComponent<Button>();
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(CycleSortMode);
+
+            UpdateSortButtonDisplay();
+            _sortingButton.SetActive(false);
+        }
+
+        private void EnsureNavigationContainers()
+        {
+            if (_scrollRect == null || _itemsContent == null) return;
+
+            if (_scrollRect.transform.parent != null)
+            {
+                var listLayout = _scrollRect.transform.parent.GetComponent<VerticalLayoutGroup>();
+                if (listLayout != null)
+                {
+                    listLayout.childControlHeight = true;
+                    listLayout.childForceExpandHeight = false;
+                }
+            }
+
+            if (_categoryContent == null)
+            {
+                var existing = _scrollRect.viewport != null
+                    ? _scrollRect.viewport.Find("CategoryContent")
+                    : _scrollRect.transform.Find("CategoryContent");
+
+                if (existing != null)
+                {
+                    _categoryContent = existing.GetComponent<RectTransform>();
+                }
+                else
+                {
+                    var catGo = new GameObject("CategoryContent", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+                    catGo.transform.SetParent(_scrollRect.viewport != null ? _scrollRect.viewport : _scrollRect.transform, false);
+                    _categoryContent = catGo.GetComponent<RectTransform>();
+                    _categoryContent.anchorMin = _itemsContent.anchorMin;
+                    _categoryContent.anchorMax = _itemsContent.anchorMax;
+                    _categoryContent.pivot = _itemsContent.pivot;
+                    _categoryContent.sizeDelta = _itemsContent.sizeDelta;
+                }
+            }
+
+            var vlg = _categoryContent.GetComponent<VerticalLayoutGroup>() ?? _categoryContent.gameObject.AddComponent<VerticalLayoutGroup>();
+            vlg.spacing = _categorySpacing;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = true;
+            vlg.childForceExpandWidth = false;
+            vlg.childForceExpandHeight = false;
+
+            var csf = _categoryContent.GetComponent<ContentSizeFitter>() ?? _categoryContent.gameObject.AddComponent<ContentSizeFitter>();
+            csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var scrollLe = _scrollRect.GetComponent<LayoutElement>() ?? _scrollRect.gameObject.AddComponent<LayoutElement>();
+            scrollLe.flexibleHeight = 1f;
+        }
+
+        private void UpdateBackButtonDisplay(TechCategory category)
+        {
+            if (_backButton == null) return;
+
+            var nameText = _backButton.transform.Find("Right/Name")?.GetComponent<Text>();
+            var descText = _backButton.transform.Find("Right/Description")?.GetComponent<Text>();
+
+            if (nameText != null) nameText.text = _localization.GetString("$BackToCategories");
+            if (descText != null) descText.text = category.GetTitle(_localization);
+        }
+
+        private void AdjustScrollbarBounds()
+        {
+            if (_scrollRect == null) return;
+
+            var scrollbar = _scrollRect.verticalScrollbar;
+            if (scrollbar == null)
+            {
+                scrollbar = _scrollRect.GetComponentInChildren<Scrollbar>(true) ??
+                            _scrollRect.transform.parent.GetComponentInChildren<Scrollbar>(true);
+            }
+
+            if (scrollbar != null)
+            {
+                var scrollbarRect = scrollbar.GetComponent<RectTransform>();
+                if (scrollbarRect != null)
+                {
+                    scrollbarRect.anchorMin = new Vector2(scrollbarRect.anchorMin.x, 0f);
+                    scrollbarRect.anchorMax = new Vector2(scrollbarRect.anchorMax.x, 1f);
+                    scrollbarRect.offsetMin = new Vector2(scrollbarRect.offsetMin.x, 6f);
+                    scrollbarRect.offsetMax = new Vector2(scrollbarRect.offsetMax.x, -6f);
                 }
             }
         }
 
-        // Resolves localized ship class name
-        private string GetShipClassName(ITechnology tech)
+        private void RebuildParentLayout()
         {
-            if (tech == null)
-                return string.Empty;
-
-            try
+            if (_scrollRect != null && _scrollRect.transform.parent != null)
             {
-                var shipObj = GetMemberValue(tech, "Ship") ?? GetMemberValue(tech, "ShipBuild");
-                if (shipObj != null)
-                {
-                    var sizeClassVal = GetMemberValue(shipObj, "SizeClass") ??
-                                       GetMemberValue(shipObj, "ShipCategory") ??
-                                       GetMemberValue(shipObj, "Class");
-
-                    if (sizeClassVal != null)
-                    {
-                        string rawStr = sizeClassVal.ToString(); 
-                        string classKey = rawStr.StartsWith("Class", StringComparison.OrdinalIgnoreCase)
-                            ? "$" + rawStr
-                            : "$Class" + rawStr;
-
-                        string loc = _localization.GetString(classKey);
-                        if (!string.IsNullOrEmpty(loc) && !loc.StartsWith("$"))
-                            return loc;
-
-                        // Fallback without Class prefix
-                        loc = _localization.GetString("$" + rawStr);
-                        if (!string.IsNullOrEmpty(loc) && !loc.StartsWith("$"))
-                            return loc;
-
-                        return rawStr;
-                    }
-                }
+                var parentRect = _scrollRect.transform.parent.GetComponent<RectTransform>();
+                if (parentRect != null) LayoutRebuilder.ForceRebuildLayoutImmediate(parentRect);
             }
-            catch { }
-
-            return string.Empty;
         }
 
         private void UpdateTechPanel()
@@ -652,445 +652,7 @@ namespace Gui.Craft
             _superiorCraftPanel.Initialize(_selectedTech, _level);
         }
 
-        private IItemType ResolveActualItemType(ITechnology tech)
-        {
-            if (tech == null)
-                return null;
-
-            try
-            {
-                var compObj = GetMemberValue(tech, "Component");
-                if (compObj != null)
-                {
-                    var compInfoType = AppDomain.CurrentDomain.GetAssemblies()
-                        .Select(a => a.GetType("Constructor.ComponentInfo"))
-                        .FirstOrDefault(t => t != null);
-
-                    if (compInfoType != null)
-                    {
-                        object compInfo = null;
-                        foreach (var ctor in compInfoType.GetConstructors(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
-                        {
-                            var pars = ctor.GetParameters();
-                            if (pars.Length >= 1 && pars[0].ParameterType.IsAssignableFrom(compObj.GetType()))
-                            {
-                                var args = new object[pars.Length];
-                                args[0] = compObj;
-                                for (int i = 1; i < pars.Length; i++)
-                                {
-                                    args[i] = pars[i].HasDefaultValue ? pars[i].DefaultValue :
-                                              pars[i].ParameterType.IsValueType ? Activator.CreateInstance(pars[i].ParameterType) : null;
-                                }
-                                try { compInfo = ctor.Invoke(args); break; } catch { }
-                            }
-                        }
-
-                        if (compInfo != null)
-                        {
-                            var createMethod = _factory.GetType().GetMethod("CreateComponentItem", new[] { compInfoType, typeof(bool) });
-                            if (createMethod != null)
-                            {
-                                var item = createMethod.Invoke(_factory, new[] { compInfo, false }) as IItemType;
-                                if (item != null)
-                                    return item;
-                            }
-                        }
-                    }
-                }
-            }
-            catch { }
-
-            try
-            {
-                var satObj = GetMemberValue(tech, "Satellite");
-                if (satObj != null)
-                {
-                    var method = _factory.GetType().GetMethod("CreateSatelliteItem", new[] { satObj.GetType(), typeof(bool) });
-                    if (method != null)
-                    {
-                        var item = method.Invoke(_factory, new[] { satObj, false }) as IItemType;
-                        if (item != null)
-                            return item;
-                    }
-                }
-            }
-            catch { }
-
-            try
-            {
-                var shipObj = GetMemberValue(tech, "Ship") ?? GetMemberValue(tech, "ShipBuild");
-                if (shipObj != null)
-                {
-                    foreach (var method in _factory.GetType().GetMethods(BindingFlags.Public | BindingFlags.Instance))
-                    {
-                        if (method.Name.Contains("ShipItem"))
-                        {
-                            var pars = method.GetParameters();
-                            if (pars.Length >= 1 && pars[0].ParameterType.IsAssignableFrom(shipObj.GetType()))
-                            {
-                                var args = new object[pars.Length];
-                                args[0] = shipObj;
-                                for (int i = 1; i < pars.Length; i++)
-                                {
-                                    args[i] = pars[i].HasDefaultValue ? pars[i].DefaultValue :
-                                              pars[i].ParameterType.IsValueType ? Activator.CreateInstance(pars[i].ParameterType) : null;
-                                }
-                                try
-                                {
-                                    var item = method.Invoke(_factory, args) as IItemType;
-                                    if (item != null)
-                                        return item;
-                                }
-                                catch { }
-                            }
-                        }
-                    }
-                }
-            }
-            catch { }
-
-            return null;
-        }
-
-        private IProduct CreateProduct(IItemType itemType)
-        {
-            if (itemType == null)
-                return null;
-
-            try
-            {
-                var assembly = typeof(IProduct).Assembly;
-                var productTypes = assembly.GetTypes()
-                    .Where(t => typeof(IProduct).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
-                    .OrderBy(t => t.Name == "Product" ? 0 : 1);
-
-                foreach (var pType in productTypes)
-                {
-                    foreach (var ctor in pType.GetConstructors(BindingFlags.Public | BindingFlags.Instance))
-                    {
-                        var pars = ctor.GetParameters();
-                        if (pars.Length == 0)
-                            continue;
-
-                        if (pars[0].ParameterType.IsAssignableFrom(itemType.GetType()))
-                        {
-                            var args = new object[pars.Length];
-                            args[0] = itemType;
-
-                            for (int i = 1; i < pars.Length; i++)
-                            {
-                                if (pars[i].ParameterType == typeof(int))
-                                    args[i] = 1;
-                                else if (pars[i].HasDefaultValue)
-                                    args[i] = pars[i].DefaultValue;
-                                else if (pars[i].ParameterType.IsValueType)
-                                    args[i] = Activator.CreateInstance(pars[i].ParameterType);
-                                else
-                                    args[i] = null;
-                            }
-
-                            var instance = ctor.Invoke(args) as IProduct;
-                            if (instance != null)
-                                return instance;
-                        }
-                    }
-                }
-            }
-            catch { }
-
-            return null;
-        }
-
-        private IProduct ExtractProductFromObject(object obj)
-        {
-            if (obj == null) return null;
-            var flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
-
-            foreach (var field in obj.GetType().GetFields(flags))
-            {
-                if (typeof(IProduct).IsAssignableFrom(field.FieldType))
-                {
-                    var p = field.GetValue(obj) as IProduct;
-                    if (p != null) return p;
-                }
-            }
-
-            foreach (var prop in obj.GetType().GetProperties(flags))
-            {
-                if (typeof(IProduct).IsAssignableFrom(prop.PropertyType) && prop.CanRead)
-                {
-                    try
-                    {
-                        var p = prop.GetValue(obj, null) as IProduct;
-                        if (p != null) return p;
-                    }
-                    catch { }
-                }
-            }
-
-            foreach (var field in obj.GetType().GetFields(flags))
-            {
-                var subVal = field.GetValue(obj);
-                if (subVal != null && subVal != obj && !field.FieldType.IsPrimitive && !field.FieldType.IsEnum && field.FieldType != typeof(string))
-                {
-                    foreach (var subField in subVal.GetType().GetFields(flags))
-                    {
-                        if (typeof(IProduct).IsAssignableFrom(subField.FieldType))
-                        {
-                            var p = subField.GetValue(subVal) as IProduct;
-                            if (p != null) return p;
-                        }
-                    }
-                }
-            }
-
-            return null;
-        }
-
-        private void UpdateResources()
-        {
-            if (!gameObject.activeSelf)
-                return;
-
-            _creditsText.text = _playerResources.Money.ToString();
-            _starsText.text = _playerResources.Stars.ToString();
-
-            int factionPoints = _research.GetAvailablePoints(_faction);
-
-            EnsureFreeStarsFaction();
-            EnsureUiBindings();
-
-            bool isAlienBase = !IsFreeStarsBase() && _freeStarsFaction != null;
-
-            if (isAlienBase)
-            {
-                int freePoints = _research.GetAvailablePoints(_freeStarsFaction);
-
-                if (_freeTechsPanel != null)
-                {
-                    _freeTechsPanel.SetActive(true);
-
-                    if (_freeTechsText != null)
-                        _freeTechsText.text = freePoints.ToString();
-
-                    if (_freeTechsIcon != null)
-                        _freeTechsIcon.color = _freeStarsFaction.Color;
-
-                    _techsText.text = factionPoints.ToString();
-                }
-                else
-                {
-                    _techsText.text = $"{factionPoints} ({freePoints})";
-                }
-            }
-            else
-            {
-                if (_freeTechsPanel != null)
-                    _freeTechsPanel.SetActive(false);
-
-                _techsText.text = factionPoints.ToString();
-            }
-        }
-
-        private void EnsureUiBindings()
-        {
-            if (_freeTechsPanel == null)
-                return;
-
-            if (_freeTechsText == null)
-                _freeTechsText = _freeTechsPanel.GetComponentInChildren<Text>();
-
-            if (_freeTechsIcon == null)
-                _freeTechsIcon = _freeTechsPanel.GetComponentInChildren<Image>();
-        }
-
-        private void EnsureFreeStarsFaction()
-        {
-            if (_freeStarsFaction != null)
-                return;
-
-            if (_starMap != null)
-            {
-                try
-                {
-                    var homeStar = _starMap.GetStarById(0);
-                    _freeStarsFaction = homeStar.Region.Faction;
-                }
-                catch { }
-            }
-
-            if (_freeStarsFaction == null && _technologies != null)
-            {
-                foreach (var tech in _technologies.All)
-                {
-                    var f = tech.Faction;
-                    if (f != null && IsFreeStars(f))
-                    {
-                        _freeStarsFaction = f;
-                        break;
-                    }
-                }
-            }
-        }
-
-        private TechCategory GetTechCategory(ITechnology tech)
-        {
-            if (tech == null)
-                return TechCategory.Other;
-
-            try
-            {
-                var compObj = GetMemberValue(tech, "Component");
-                if (compObj != null)
-                {
-                    var dataObj = GetMemberValue(compObj, "Data") ?? compObj;
-                    var catVal = GetMemberValue(dataObj, "DisplayCategory");
-                    if (catVal != null)
-                    {
-                        var category = ParseCategoryString(catVal.ToString());
-                        if (category != TechCategory.Other)
-                            return category;
-                    }
-
-                    var nameObj = GetMemberValue(dataObj, "Name") ?? GetMemberValue(compObj, "Name");
-                    if (nameObj != null)
-                    {
-                        var localized = _localization.GetString(nameObj.ToString());
-                        var catByName = ParseCategoryByLocalizedText(localized);
-                        if (catByName != TechCategory.Other)
-                            return catByName;
-                    }
-                }
-
-                var shipObj = GetMemberValue(tech, "Ship") ?? GetMemberValue(tech, "ShipBuild");
-                if (shipObj != null)
-                    return TechCategory.Ship;
-
-                var satObj = GetMemberValue(tech, "Satellite");
-                if (satObj != null)
-                    return TechCategory.Satellite;
-
-                var typeName = tech.GetType().Name;
-                if (typeName.IndexOf("Ship", StringComparison.OrdinalIgnoreCase) >= 0)
-                    return TechCategory.Ship;
-
-                if (typeName.IndexOf("Satellite", StringComparison.OrdinalIgnoreCase) >= 0)
-                    return TechCategory.Satellite;
-            }
-            catch { }
-
-            return TechCategory.Other;
-        }
-
-        private TechCategory ParseCategoryString(string catName)
-        {
-            if (string.IsNullOrEmpty(catName))
-                return TechCategory.Other;
-
-            if (catName.IndexOf("Drone", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                catName.IndexOf("Hangar", StringComparison.OrdinalIgnoreCase) >= 0)
-                return TechCategory.Drone;
-
-            if (catName.IndexOf("Weapon", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                catName.IndexOf("Gun", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                catName.IndexOf("Cannon", StringComparison.OrdinalIgnoreCase) >= 0)
-                return TechCategory.Weapon;
-
-            if (catName.IndexOf("Armor", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                catName.IndexOf("Shield", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                catName.IndexOf("Defense", StringComparison.OrdinalIgnoreCase) >= 0)
-                return TechCategory.Armor;
-
-            if (catName.IndexOf("Energy", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                catName.IndexOf("Reactor", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                catName.IndexOf("Battery", StringComparison.OrdinalIgnoreCase) >= 0)
-                return TechCategory.Energy;
-
-            if (catName.IndexOf("Engine", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                catName.IndexOf("Thruster", StringComparison.OrdinalIgnoreCase) >= 0)
-                return TechCategory.Engine;
-
-            return TechCategory.Other;
-        }
-
-        private bool ContainsLocalized(string text, params string[] keys)
-        {
-            foreach (var key in keys)
-            {
-                var localized = _localization.GetString(key);
-                if (!string.IsNullOrEmpty(localized) && text.IndexOf(localized, StringComparison.OrdinalIgnoreCase) >= 0)
-                    return true;
-            }
-            return false;
-        }
-
-        private TechCategory ParseCategoryByLocalizedText(string text)
-        {
-            if (string.IsNullOrEmpty(text))
-                return TechCategory.Other;
-            if (ContainsLocalized(text, "$DroneBay", "$GroupDrones", "$ClassDrone"))
-                return TechCategory.Drone;
-            if (ContainsLocalized(text, "$Weapon", "$GroupWeapon", "$WeaponType"))
-                return TechCategory.Weapon;
-            if (ContainsLocalized(text, "$Armor", "$Shield", "$GroupArmor", "$MenuDefense"))
-                return TechCategory.Armor;
-            if (ContainsLocalized(text, "$Reactor", "$Energy", "$GroupEnergy", "$MenuEnergy"))
-                return TechCategory.Energy;
-            if (ContainsLocalized(text, "$Engine", "$GroupEngines"))
-                return TechCategory.Engine;
-            if (ContainsLocalized(text, "$Ship", "$GroupShips"))
-                return TechCategory.Ship;
-            if (ContainsLocalized(text, "$Satellite", "$GroupSatellites"))
-                return TechCategory.Satellite;
-
-            return TechCategory.Other;
-        }
-
-        private object GetMemberValue(object obj, string name)
-        {
-            if (obj == null || string.IsNullOrEmpty(name))
-                return null;
-
-            var type = obj.GetType();
-            var prop = type.GetProperty(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-            if (prop != null)
-                return prop.GetValue(obj, null);
-
-            var field = type.GetField(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-            if (field != null)
-                return field.GetValue(obj);
-
-            return null;
-        }
-
-        private bool IsFreeStars(Faction faction)
-        {
-            if (faction == null)
-                return false;
-
-            var idStr = faction.Id.ToString();
-            return idStr == "0" ||
-                   idStr.Equals("Empty", StringComparison.OrdinalIgnoreCase) ||
-                   faction.Name == "$FreeStars" ||
-                   faction.Name.IndexOf("Free", StringComparison.OrdinalIgnoreCase) >= 0;
-        }
-
-        private bool IsFreeStarsBase()
-        {
-            if (_faction == null)
-                return true;
-
-            if (IsFreeStars(_faction))
-                return true;
-
-            if (_freeStarsFaction != null)
-                return _faction.Equals(_freeStarsFaction) || _faction.Id.Equals(_freeStarsFaction.Id);
-
-            return false;
-        }
-
         private Faction _faction;
-        private Faction _freeStarsFaction;
         private ObscuredInt _level;
         private ITechnology _selectedTech;
     }

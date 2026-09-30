@@ -115,4 +115,18 @@
     <string name="RamDamageModifier">Ramming Damage Modifier</string>	
     <string name="EnginePowerModifier">Thrust Modifier</string>
     <string name="TurnRateModifier">Turn Rate Modifier</string>
+	<!-- ======================================================== -->
+	<string name="Sorting">Sorting</string>
+    <string name="SortDefault">Default</string>
+    <string name="SortNameAsc">Name (A-Z)</string>
+    <string name="SortNameDesc">Name (Z-A)</string>
+    <string name="SortIdAsc">ID (0-9)</string>
+    <string name="SortIdDesc">ID (9-0)</string>
+    
+    <string name="WeaponProjectileSize">Projectile Size</string>
+    <string name="ComponentLimit">Module Limit</string>
+    <string name="DefaultTagName">Type_</string>
+    <string name="Requirements">Requirements</string>
+    <string name="ShipTypeMechanical">Mech Ships</string>
+    <string name="ShipTypeOrganic">Organic Ships</string>
 </resources>

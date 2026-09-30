@@ -1,14 +1,11 @@
-﻿using DataModel.Technology;
-using GameDatabase;
+﻿using CommonComponents.Utils;
+using DataModel.Technology;
 using GameDatabase.DataModel;
-using GameDatabase.Enums;
-using GameDatabase.Model;
 using GameServices.Player;
 using GameServices.Research;
 using UnityEngine;
 using UnityEngine.UI;
 using Zenject;
-using CommonComponents.Utils;
 
 namespace Gui.Craft
 {
@@ -29,21 +26,41 @@ namespace Gui.Craft
 
         public void Initialize(CraftingPrice price, Faction faction)
         {
-			const int PriceDigits = 7;
+            const int PriceDigits = 7;
 
-			_creditsPanel.SetActive(price.Credits > 0);
+            // Credits
+            _creditsPanel.SetActive(price.Credits > 0);
             _creditsText.text = price.Credits.ToString(PriceDigits);
             var enoughMoney = _resources.Money >= price.Credits;
             _creditsText.color = enoughMoney ? _enoughColor : _notEnoughColor;
+
+            // Stars currency
             _starsPanel.SetActive(price.Stars > 0);
             _starsText.text = price.Stars.ToString(PriceDigits);
             var enoughStars = _resources.Stars >= price.Stars;
             _starsText.color = enoughStars ? _enoughColor : _notEnoughColor;
-            _techsPanel.SetActive(price.Techs > 0);
-            _techsText.text = ValueFormatter.AsMoney(price.Techs);
-            var enoughTechs = _research.GetAvailablePoints(faction) >= price.Techs;
+
+            // Tech points with available balance
+            var targetFaction = (faction == null || faction == Faction.Empty || faction.Id.ToString() == "0")
+                ? Faction.Empty
+                : faction;
+
+            int availableTechs = _research.GetAvailablePoints(targetFaction);
+            if (availableTechs == 0 && targetFaction != Faction.Empty)
+            {
+                availableTechs = _research.GetAvailablePoints(Faction.Empty);
+            }
+
+            _techsPanel.SetActive(price.Techs > 0 || availableTechs > 0);
+            _techsText.text = $"{ValueFormatter.AsMoney(price.Techs)} ({availableTechs})";
+
+            var enoughTechs = availableTechs >= price.Techs;
             _techsText.color = enoughTechs ? _enoughColor : _notEnoughColor;
-            _techsImage.color = faction.Color;
+
+            if (_techsImage != null)
+            {
+                _techsImage.color = targetFaction.Color;
+            }
 
             HaveEnoughResources = enoughTechs && enoughMoney && enoughStars;
         }
