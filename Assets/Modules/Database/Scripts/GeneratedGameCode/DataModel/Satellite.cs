@@ -33,6 +33,7 @@ namespace GameDatabase.DataModel
 			SizeClass = serializable.SizeClass;
 			Layout = new Layout(serializable.Layout);
 			Barrels = new ImmutableCollection<Barrel>(serializable.Barrels?.Select(item => Barrel.Create(item, loader)));
+			NotAvailableInBlackMarket = serializable.NotAvailableInBlackMarket;
 
 			OnDataDeserialized(serializable, loader);
 		}
@@ -45,6 +46,7 @@ namespace GameDatabase.DataModel
 		public SizeClass SizeClass { get; private set; }
 		public Layout Layout { get; private set; }
 		public ImmutableCollection<Barrel> Barrels { get; private set; }
+		public bool NotAvailableInBlackMarket { get; private set; }
 
 		public static Satellite DefaultValue { get; private set; }
 	}

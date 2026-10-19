@@ -68,8 +68,8 @@ namespace GameModel
                             if (_productFactory.TryCreateRandomComponentProduct(_starId, componentCount, _level + 75, ComponentQuality.P3, null, true, Market.RareComponentRenewalTime, out var product, false, 5f * pricescale))
                                _items.Add(product);
 
-                        foreach (var item in _database.SatelliteList.Where(item => item.SizeClass != SizeClass.Titan).RandomUniqueElements(random.Next(extraGoods + 3), random))
-							_items.Add(_productFactory.CreateRenewableMarketProduct(_itemTypeFactory.CreateSatelliteItem(item, true), 1, _starId, Market.SatelliteRenewalTime, pricescale));
+                        foreach (var item in _database.SatelliteList.Where(item => item.SizeClass != SizeClass.Titan && !item.NotAvailableInBlackMarket).RandomUniqueElements(random.Next(extraGoods + 3), random))
+                            _items.Add(_productFactory.CreateRenewableMarketProduct(_itemTypeFactory.CreateSatelliteItem(item, true), 1, _starId, Market.SatelliteRenewalTime, pricescale));
 
 						//if (Model.Regulations.Time.IsCristmas && random.Next(3) == 0)
 						//	_items.Add(_productFactory.CreateRenewableMarketProduct(new XmaxBoxItem(random.Next(), _starId), 1, _starId, Market.GiftBoxRenewalTime, 1));

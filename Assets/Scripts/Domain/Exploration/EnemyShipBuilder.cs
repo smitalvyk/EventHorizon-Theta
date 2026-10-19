@@ -37,18 +37,25 @@ namespace Game.Exploration
             var ship = new EnemyShip(build, _database);
 
             var shipLevel = _database.GalaxySettings.EnemyLevel(_level);
-            shipLevel -= random.Next(shipLevel/3);
+            shipLevel -= random.Next(shipLevel / 3);
             ship.Experience = Maths.Experience.FromLevel(shipLevel);
 
             var satelliteClass = Maths.Distance.MaxShipClass(_level);
             if (_allowSatellites && ship.Model.ShipType == ShipType.Common && satelliteClass != DifficultyClass.Default)
             {
-                var satellites = _database.SatelliteBuildList.LimitClass(satelliteClass).SuitableFor(build.Ship);
-                if (satellites.Any())
+                // Assign first satellite only if the slot is empty
+                if (ship.FirstSatellite == null && random.Next(3) != 0)
                 {
-                    if (random.Next(3) != 0)
+                    var satellites = _database.SatelliteBuildList.LimitClass(satelliteClass).SuitableFor(build.Ship, _database.ShipSettings);
+                    if (satellites.Any())
                         ship.FirstSatellite = new CommonSatellite(satellites.RandomElement(random));
-                    if (random.Next(3) != 0)
+                }
+
+                // Assign second satellite only if the slot is empty
+                if (ship.SecondSatellite == null && random.Next(3) != 0)
+                {
+                    var satellites = _database.SatelliteBuildList.LimitClass(satelliteClass).SuitableFor(build.Ship, _database.ShipSettings);
+                    if (satellites.Any())
                         ship.SecondSatellite = new CommonSatellite(satellites.RandomElement(random));
                 }
             }

@@ -6,4 +6,6 @@
     <member name="SizeClass" type="enum" typeid="SizeClass" />
     <member name="Layout" type="layout" />
     <member name="Barrels" type="struct_list" typeid="Barrel" />
+	
+	<member name="NotAvailableInBlackMarket" type="bool" />
 </data>

@@ -21,4 +21,7 @@
     <member name="ShipExplosionSound" type="audioclip" />
     <member name="DroneExplosionEffect" type="object" typeid="VisualEffect" />
     <member name="DroneExplosionSound" type="audioclip" />
+	
+	<member name="SatelliteModelScaleMultiplier" type="float" minvalue="1" maxvalue="100" default="2" />
+	<member name="SatelliteRequireModelScaleWithSizeClass" type="bool" default="true" />
 </data>

@@ -18,6 +18,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using Zenject;
+using Constructor.Satellites;
 
 namespace GameStateMachine.States
 {
@@ -115,6 +116,8 @@ namespace GameStateMachine.States
             Combat.Component.Body.RigidBodyAdapter.UseDynamicPhysicsLimits = combatSettings == null || combatSettings.UseDynamicPhysicsLimits;
 
             _localization.Initialize(_settings.Language, _database);
+            
+            _database.SatelliteBuildList.ReportNegativeEnergyBuilds();
 
             if (_database.IsEditable)
             {

@@ -45,6 +45,8 @@ namespace GameDatabase.DataModel
 			ShipExplosionSound = new AudioClipId(serializable.ShipExplosionSound);
 			DroneExplosionEffect = loader?.GetVisualEffect(new ItemId<VisualEffect>(serializable.DroneExplosionEffect)) ?? VisualEffect.DefaultValue;
 			DroneExplosionSound = new AudioClipId(serializable.DroneExplosionSound);
+			SatelliteModelScaleMultiplier = UnityEngine.Mathf.Clamp(serializable.SatelliteModelScaleMultiplier, 1f, 100f);
+			SatelliteRequireModelScaleWithSizeClass = serializable.SatelliteRequireModelScaleWithSizeClass;
 
 			OnDataDeserialized(serializable, loader);
 		}
@@ -70,6 +72,8 @@ namespace GameDatabase.DataModel
 		public AudioClipId ShipExplosionSound { get; private set; }
 		public VisualEffect DroneExplosionEffect { get; private set; }
 		public AudioClipId DroneExplosionSound { get; private set; }
+		public float SatelliteModelScaleMultiplier { get; private set; }
+		public bool SatelliteRequireModelScaleWithSizeClass { get; private set; }
 
 		public static ShipSettings DefaultValue { get; private set; }
 	}

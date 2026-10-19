@@ -36,5 +36,7 @@ namespace GameDatabase.Serializable
 		public string ShipExplosionSound;
 		public int DroneExplosionEffect;
 		public string DroneExplosionSound;
+		public float SatelliteModelScaleMultiplier = 2f;
+		public bool SatelliteRequireModelScaleWithSizeClass = true;
 	}
 }

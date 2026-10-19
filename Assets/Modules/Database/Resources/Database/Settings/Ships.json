@@ -15,5 +15,7 @@
   "ShipExplosionEffect": 20,
   "ShipExplosionSound": "explosion_01",
   "DroneExplosionEffect": 21,
-  "DroneExplosionSound": "explosion_10"
+  "DroneExplosionSound": "explosion_10",
+  "SatelliteModelScaleMultiplier": 2.0,
+	"SatelliteRequireModelScaleWithSizeClass": true,
 }
