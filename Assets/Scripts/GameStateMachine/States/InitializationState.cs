@@ -118,6 +118,7 @@ namespace GameStateMachine.States
             _localization.Initialize(_settings.Language, _database);
             
             _database.SatelliteBuildList.ReportNegativeEnergyBuilds();
+            Maths.Experience.Settings = _database.ShipSettings;
 
             if (_database.IsEditable)
             {

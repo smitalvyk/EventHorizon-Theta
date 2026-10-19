@@ -24,4 +24,6 @@
 	
 	<member name="SatelliteModelScaleMultiplier" type="float" minvalue="1" maxvalue="100" default="2" />
 	<member name="SatelliteRequireModelScaleWithSizeClass" type="bool" default="true" />
+	<member name="LevelToPowerMultiplier" type="expression" typeid="IntToFloat" arguments="level" minvalue="1" default="11 ^ (0.01 * level)" />
+	<member name="TotalExpFormula" type="string" default="(1 + (level + 1) ^ 1.2) * (cells ^ 1.2) * (1 + threat)" />
 </data>

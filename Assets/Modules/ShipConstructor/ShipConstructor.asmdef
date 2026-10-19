@@ -6,7 +6,8 @@
         "CommonComponents",
         "Localization",
         "Diagnostics",
-        "Utilites"
+        "Utilites",
+        "CodeWriter.ExpressionParser"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

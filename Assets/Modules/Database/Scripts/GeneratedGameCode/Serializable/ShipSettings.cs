@@ -38,5 +38,7 @@ namespace GameDatabase.Serializable
 		public string DroneExplosionSound;
 		public float SatelliteModelScaleMultiplier = 2f;
 		public bool SatelliteRequireModelScaleWithSizeClass = true;
+		public string LevelToPowerMultiplier = "11 ^ (0.01 * level)";
+		public string TotalExpFormula = "(1 + (level + 1) ^ 1.2) * (cells ^ 1.2) * (1 + threat)";
 	}
 }

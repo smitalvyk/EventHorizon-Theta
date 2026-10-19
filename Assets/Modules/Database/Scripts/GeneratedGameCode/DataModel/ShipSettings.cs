@@ -10,10 +10,11 @@ using System.Linq;
 using GameDatabase.Enums;
 using GameDatabase.Serializable;
 using GameDatabase.Model;
+using CodeWriter.ExpressionParser;
 
 namespace GameDatabase.DataModel
 {
-	public partial class ShipSettings 
+	public partial class ShipSettings : IDefaultVariablesResolver
 	{
 		partial void OnDataDeserialized(ShipSettingsSerializable serializable, Database.Loader loader);
 
@@ -24,6 +25,7 @@ namespace GameDatabase.DataModel
 
 		private ShipSettings(ShipSettingsSerializable serializable, Database.Loader loader)
 		{
+			var variableResolver = new VariableResolver(this);
 			DefaultWeightPerCell = UnityEngine.Mathf.Clamp(serializable.DefaultWeightPerCell, 1f, 1000000f);
 			MinimumWeightPerCell = UnityEngine.Mathf.Clamp(serializable.MinimumWeightPerCell, 1f, 1000000f);
 			BaseArmorPoints = UnityEngine.Mathf.Clamp(serializable.BaseArmorPoints, 0f, 1000000f);
@@ -47,6 +49,9 @@ namespace GameDatabase.DataModel
 			DroneExplosionSound = new AudioClipId(serializable.DroneExplosionSound);
 			SatelliteModelScaleMultiplier = UnityEngine.Mathf.Clamp(serializable.SatelliteModelScaleMultiplier, 1f, 100f);
 			SatelliteRequireModelScaleWithSizeClass = serializable.SatelliteRequireModelScaleWithSizeClass;
+			_levelToPowerMultiplier = new Expressions.IntToFloat(serializable.LevelToPowerMultiplier, 1, 2147483647, variableResolver) { ParamName1 = "level" };
+			LevelToPowerMultiplier = _levelToPowerMultiplier.Evaluate;
+			TotalExpFormula = serializable.TotalExpFormula;
 
 			OnDataDeserialized(serializable, loader);
 		}
@@ -74,7 +79,71 @@ namespace GameDatabase.DataModel
 		public AudioClipId DroneExplosionSound { get; private set; }
 		public float SatelliteModelScaleMultiplier { get; private set; }
 		public bool SatelliteRequireModelScaleWithSizeClass { get; private set; }
+		private readonly Expressions.IntToFloat _levelToPowerMultiplier;
+		public delegate float LevelToPowerMultiplierDelegate(int level);
+		public LevelToPowerMultiplierDelegate LevelToPowerMultiplier { get; private set; }
+		public string TotalExpFormula { get; private set; }
 
 		public static ShipSettings DefaultValue { get; private set; }
+
+		private class VariableResolver : IVariableResolver
+		{
+			private ShipSettings _context;
+
+			public VariableResolver(ShipSettings context)
+			{
+				_context = context;
+			}
+
+			public IFunction<Variant> ResolveFunction(string name)
+            {
+				if (name == "LevelToPowerMultiplier") return _context._levelToPowerMultiplier;
+				return ((IVariableResolver)_context).ResolveFunction(name);
+			}
+
+			public Expression<Variant> ResolveVariable(string name)
+			{
+				if (name == "DefaultWeightPerCell") return GetDefaultWeightPerCell;
+				if (name == "MinimumWeightPerCell") return GetMinimumWeightPerCell;
+				if (name == "BaseArmorPoints") return GetBaseArmorPoints;
+				if (name == "ArmorPointsPerCell") return GetArmorPointsPerCell;
+				if (name == "ArmorRepairCooldown") return GetArmorRepairCooldown;
+				if (name == "BaseEnergyPoints") return GetBaseEnergyPoints;
+				if (name == "BaseEnergyRechargeRate") return GetBaseEnergyRechargeRate;
+				if (name == "EnergyRechargeCooldown") return GetEnergyRechargeCooldown;
+				if (name == "BaseShieldRechargeRate") return GetBaseShieldRechargeRate;
+				if (name == "ShieldRechargeCooldown") return GetShieldRechargeCooldown;
+				if (name == "BaseDroneReconstructionSpeed") return GetBaseDroneReconstructionSpeed;
+				if (name == "ShieldCorrosiveResistance") return GetShieldCorrosiveResistance;
+				if (name == "MaxVelocity") return GetMaxVelocity;
+				if (name == "MaxAngularVelocity") return GetMaxAngularVelocity;
+				if (name == "MaxAcceleration") return GetMaxAcceleration;
+				if (name == "MaxAngularAcceleration") return GetMaxAngularAcceleration;
+				if (name == "DisableCellsExpansions") return GetDisableCellsExpansions;
+				if (name == "SatelliteModelScaleMultiplier") return GetSatelliteModelScaleMultiplier;
+				if (name == "SatelliteRequireModelScaleWithSizeClass") return GetSatelliteRequireModelScaleWithSizeClass;
+				return ((IVariableResolver)_context).ResolveVariable(name);
+			}
+
+			private Variant GetDefaultWeightPerCell() => _context.DefaultWeightPerCell;
+			private Variant GetMinimumWeightPerCell() => _context.MinimumWeightPerCell;
+			private Variant GetBaseArmorPoints() => _context.BaseArmorPoints;
+			private Variant GetArmorPointsPerCell() => _context.ArmorPointsPerCell;
+			private Variant GetArmorRepairCooldown() => _context.ArmorRepairCooldown;
+			private Variant GetBaseEnergyPoints() => _context.BaseEnergyPoints;
+			private Variant GetBaseEnergyRechargeRate() => _context.BaseEnergyRechargeRate;
+			private Variant GetEnergyRechargeCooldown() => _context.EnergyRechargeCooldown;
+			private Variant GetBaseShieldRechargeRate() => _context.BaseShieldRechargeRate;
+			private Variant GetShieldRechargeCooldown() => _context.ShieldRechargeCooldown;
+			private Variant GetBaseDroneReconstructionSpeed() => _context.BaseDroneReconstructionSpeed;
+			private Variant GetShieldCorrosiveResistance() => _context.ShieldCorrosiveResistance;
+			private Variant GetMaxVelocity() => _context.MaxVelocity;
+			private Variant GetMaxAngularVelocity() => _context.MaxAngularVelocity;
+			private Variant GetMaxAcceleration() => _context.MaxAcceleration;
+			private Variant GetMaxAngularAcceleration() => _context.MaxAngularAcceleration;
+			private Variant GetDisableCellsExpansions() => _context.DisableCellsExpansions;
+			private Variant GetSatelliteModelScaleMultiplier() => _context.SatelliteModelScaleMultiplier;
+			private Variant GetSatelliteRequireModelScaleWithSizeClass() => _context.SatelliteRequireModelScaleWithSizeClass;
+		}
 	}
 }
