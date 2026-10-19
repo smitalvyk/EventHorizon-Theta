@@ -1,70 +1,70 @@
 using Economy.ItemType;
 using Economy.Products;
+using Services.Resources;
 using UnityEngine;
 using UnityEngine.UI;
-using Services.Resources;
 
-namespace ViewModel
+namespace ViewModel.Common
 {
-	namespace Common
-	{
-		public class InventoryItem : MonoBehaviour
-		{
-			[SerializeField] private Image Icon;
-			[SerializeField] private Text NameText;
-            [SerializeField] private Text DescriptionText;
-            [SerializeField] private GameObject QuantityPanel;
-			[SerializeField] private Text QuantityText;
-			[SerializeField] private RectTransform OutOfStockPanel;
-			[SerializeField] private GameObject RankPanel;
-			[SerializeField] private Text RankText;
-			[SerializeField] private PricePanel PricePanel;
-		    [SerializeField] private Selectable Selectable;
+    public class InventoryItem : MonoBehaviour
+    {
+        [SerializeField] private Image Icon;
+        [SerializeField] private Text NameText;
+        [SerializeField] private Text DescriptionText;
+        [SerializeField] private GameObject QuantityPanel;
+        [SerializeField] private Text QuantityText;
+        [SerializeField] private RectTransform OutOfStockPanel;
+        [SerializeField] private GameObject RankPanel;
+        [SerializeField] private Text RankText;
+        [SerializeField] private PricePanel PricePanel;
+        [SerializeField] private Selectable Selectable;
 
-			public void Initialize(IProduct item, bool notEnoughMoney, IResourceLocator resourceLocator)
-			{
-				Product = item;
-				Icon.sprite = resourceLocator.GetSprite(item.Type.Icon);
-				Icon.color = item.Type.Color;
-				NameText.text = item.Type.Name;
-                DescriptionText.gameObject.SetActive(!string.IsNullOrEmpty(DescriptionText.text = item.Type.Description));
-                NameText.color = DescriptionText.color = Gui.Theme.UiTheme.Current.GetQualityColor(item.Type.Quality);
+        public IProduct Product { get; private set; }
 
-                if (PricePanel != null)
-                    PricePanel.Initialize(item.Type, item.Price, notEnoughMoney);
+        public void Initialize(IProduct item, bool notEnoughMoney, IResourceLocator resourceLocator)
+        {
+            Product = item;
+            var type = item.Type;
+            var color = Gui.Theme.UiTheme.Current.GetQualityColor(type.Quality);
 
-			    if (QuantityPanel != null)
-			    {
-			        QuantityText.text = item.Quantity.ToString();
-			        QuantityPanel.gameObject.SetActive(item.Quantity > 1);
-			    }
+            Icon.sprite = resourceLocator.GetSprite(type.Icon);
+            Icon.color = type.Color;
 
-                if (OutOfStockPanel != null)
-			        OutOfStockPanel.gameObject.SetActive(!notEnoughMoney && item.Quantity <= 0);
+            NameText.text = type.Name;
+            NameText.color = color;
 
-			    if (Selectable != null)
-			        Selectable.interactable = !notEnoughMoney;
+            DescriptionText.text = type.Description;
+            DescriptionText.color = color;
+            DescriptionText.gameObject.SetActive(!string.IsNullOrEmpty(type.Description));
 
-				InitShip(item.Type as ShipItemBase);
-			}
+            if (PricePanel != null)
+                PricePanel.Initialize(type, item.Price, notEnoughMoney);
 
-			public IProduct Product { get; private set; }
+            if (QuantityPanel != null)
+            {
+                QuantityText.text = item.Quantity.ToString();
+                QuantityPanel.SetActive(item.Quantity > 1);
+            }
 
-			private void InitShip(ShipItemBase ship)
-			{
-                if (RankPanel == null)
-                    return;
-			    
-				if (ship == null || ship.Rank < 1)
-				{
-					RankPanel.gameObject.SetActive(false);
-				}
-				else
-				{
-					RankPanel.gameObject.SetActive(true);
-					RankText.text = ship.Rank.ToString();
-				}
-			}
-		}
-	}
+            if (OutOfStockPanel != null)
+                OutOfStockPanel.gameObject.SetActive(!notEnoughMoney && item.Quantity <= 0);
+
+            if (Selectable != null)
+                Selectable.interactable = !notEnoughMoney;
+
+            UpdateRank(type as ShipItemBase);
+        }
+
+        private void UpdateRank(ShipItemBase ship)
+        {
+            if (RankPanel == null)
+                return;
+
+            var hasRank = ship != null && ship.Rank >= 1;
+            RankPanel.SetActive(hasRank);
+
+            if (hasRank)
+                RankText.text = ship.Rank.ToString();
+        }
+    }
 }

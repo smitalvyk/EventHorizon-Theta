@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data name="ItemCategoryData" type="struct">
+    <member name="Id" type="int" minvalue="1" maxvalue="9999" />
+    <member name="Name" type="string" />
+    <member name="Icon" type="string" />
+    <member name="ParentId" type="int" minvalue="0" maxvalue="9999" default="0" />
+    <member name="Fill" type="enum_flags" typeid="CategoryTag" />
+    <member name="Slots" type="string" default="" />
+</data>

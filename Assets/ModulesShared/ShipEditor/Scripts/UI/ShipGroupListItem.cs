@@ -3,6 +3,12 @@ using UnityEngine.UI;
 
 namespace ShipEditor.UI
 {
+    public interface IShipCategoryHandler
+    {
+        void OpenCategory(CategoryData category);
+        void GoBack();
+    }
+
     public class ShipGroupListItem : MonoBehaviour
     {
         [SerializeField] private Image _icon;
@@ -12,52 +18,72 @@ namespace ShipEditor.UI
         [SerializeField] private Button _button;
 
         private CategoryData _category;
-        private ShipListContentFiller _filler;
+        private IShipCategoryHandler _handler;
         private bool _isBackButton;
+        private Color? _originalIconColor;
 
-        private Color? _originalIconColor = null;
+        private void Awake()
+        {
+            if (_button)
+                _button.onClick.AddListener(OnClick);
+        }
 
-        public void Initialize(CategoryData category, ShipListContentFiller filler, bool isBackButton = false)
+        private void OnDestroy()
+        {
+            if (_button)
+                _button.onClick.RemoveListener(OnClick);
+        }
+
+        public void Initialize(CategoryData category, IShipCategoryHandler handler, bool isBackButton = false)
         {
             _category = category;
-            _filler = filler;
+            _handler = handler;
             _isBackButton = isBackButton;
 
-            if (_nameText) _nameText.text = category.Name;
+            if (_nameText)
+                _nameText.text = category.Title;
 
-            if (_icon)
-            {
-                // Cache initial prefab color
-                if (_originalIconColor == null)
-                    _originalIconColor = _icon.color;
+            UpdateIcon(category);
 
-                bool hasIcon = category.Icon != null;
-                _icon.gameObject.SetActive(hasIcon);
+            if (_expandIcon)
+                _expandIcon.SetActive(!isBackButton);
+            if (_collapseIcon)
+                _collapseIcon.SetActive(isBackButton);
+        }
 
-                if (hasIcon)
-                {
-                    _icon.sprite = category.Icon;
-                    // Blue for root, white for sub-categories
-                    _icon.color = category.Parent == null ? _originalIconColor.Value : Color.white;
-                }
-            }
+        private void UpdateIcon(CategoryData category)
+        {
+            if (!_icon)
+                return;
 
-            if (_expandIcon) _expandIcon.SetActive(!isBackButton);
-            if (_collapseIcon) _collapseIcon.SetActive(isBackButton);
+            if (_originalIconColor == null)
+                _originalIconColor = _icon.color;
 
-            if (_button)
-            {
-                _button.onClick.RemoveAllListeners();
-                _button.onClick.AddListener(OnClick);
-            }
+            var hasIcon = category.Icon != null;
+            _icon.gameObject.SetActive(hasIcon);
+            if (!hasIcon)
+                return;
+
+            _icon.sprite = category.Icon;
+
+            // Ship icons keep their own colors; folders and weapon slots use the theme color.
+            if (category.Color.HasValue)
+                _icon.color = category.Color.Value;
+            else if (category.Ships != null && category.Ships.Count > 0)
+                _icon.color = Color.white;
+            else
+                _icon.color = _originalIconColor.Value;
         }
 
         private void OnClick()
         {
+            if (_handler == null)
+                return;
+
             if (_isBackButton)
-                _filler.GoBack();
+                _handler.GoBack();
             else
-                _filler.OpenCategory(_category);
+                _handler.OpenCategory(_category);
         }
     }
 }

@@ -1,0 +1,54 @@
+{
+  "ItemType": 122,
+  "Categories": [
+    {
+      "Id": 1,
+      "Name": "$GroupWeapon",
+      "Icon": "textures/icons/icon_weapon",
+      "Fill": [ 1 ],
+      "Slots": ""
+    },
+    {
+      "Id": 2,
+      "Name": "$GroupArmor",
+      "Icon": "icons/icon_shield",
+      "Fill": [ 2 ]
+    },
+    {
+      "Id": 3,
+      "Name": "$GroupEnergy",
+      "Icon": "icons/icon_battery",
+      "Fill": [ 3 ]
+    },
+    {
+      "Id": 4,
+      "Name": "$GroupEngines",
+      "Icon": "icons/icon_engine",
+      "Fill": [ 4 ]
+    },
+    {
+      "Id": 5,
+      "Name": "$GroupDrones",
+      "Icon": "icons/icon_drone",
+      "Fill": [ 5 ]
+    },
+    {
+      "Id": 6,
+      "Name": "$GroupSpecial",
+      "Icon": "icons/icon_gear",
+      "Fill": [ 6 ]
+    },
+    {
+      "Id": 7,
+      "Name": "$GroupSatellites",
+      "Icon": "icons/icon_scanner",
+      "Fill": [ 7 ]
+    },
+    {
+      "Id": 8,
+      "Name": "$GroupShips",
+      "Icon": "icons/icon_ship",
+      "Fill": [ 8 ]
+    }
+  ]
+}

@@ -5,4 +5,5 @@
     <member name="Icon" type="image" typeid="ArtifactIcon" />
     <member name="Color" type="color" />
     <member name="Price" type="int" minvalue="0" maxvalue="999999999" />
+	<member name="InventoryCategory" type="int" minvalue="0" maxvalue="9999" default="0" />
 </data>

@@ -129,4 +129,6 @@
     <string name="Requirements">Requirements</string>
     <string name="ShipTypeMechanical">Mech Ships</string>
     <string name="ShipTypeOrganic">Organic Ships</string>
+    
+    <string name="Category_Other">Other</string>
 </resources>

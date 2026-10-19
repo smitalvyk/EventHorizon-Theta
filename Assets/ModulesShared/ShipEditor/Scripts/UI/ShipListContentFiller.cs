@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Constructor.Ships;
 using GameDatabase.Enums;
@@ -10,11 +11,13 @@ using Zenject;
 
 namespace ShipEditor.UI
 {
-    public class ShipListContentFiller : MonoBehaviour, IContentFiller
+    public class ShipListContentFiller : MonoBehaviour, IContentFiller, IShipCategoryHandler
     {
+        private const int ShipItemType = 0;
+        private const int CategoryItemType = 1;
+
         [Inject] private readonly IResourceLocator _resourceLocator;
         [Inject] private readonly ILocalization _localization;
-
         [Inject] private readonly GameDatabase.IDatabase _database;
 
         [SerializeField] private ShipItem _itemPrefab;
@@ -26,98 +29,40 @@ namespace ShipEditor.UI
         [Header("Search UI")]
         [SerializeField] private InputField _searchInput;
 
-        private List<CategoryData> _rootCategories = new List<CategoryData>();
-        private List<DisplayItem> _displayItems = new List<DisplayItem>();
+        private readonly List<CategoryData> _rootCategories = new List<CategoryData>();
+        private readonly List<DisplayItem> _displayItems = new List<DisplayItem>();
+        private readonly List<IShip> _searchPool = new List<IShip>();
+        private readonly Dictionary<IShip, string> _searchText = new Dictionary<IShip, string>();
 
-        private CategoryData _activeCategory = null;
-        private string _searchQuery = "";
+        private CategoryData _activeCategory;
+        private string _searchQuery = string.Empty;
 
-        public event System.Action OnListChanged;
+        public event Action OnListChanged;
 
         public void Initialize(IEnumerable<IShip> ships)
         {
             _itemPrefab.gameObject.SetActive(false);
-            if (_groupPrefab) _groupPrefab.gameObject.SetActive(false);
+            if (_groupPrefab)
+                _groupPrefab.gameObject.SetActive(false);
 
             _rootCategories.Clear();
+            _searchText.Clear();
 
-            var groupedBySize = ships.GroupBy(s => s.Model.SizeClass).OrderBy(g => g.Key);
+            foreach (var sizeGroup in ships.GroupBy(s => s.Model.SizeClass).OrderBy(g => g.Key))
+                _rootCategories.Add(CreateSizeCategory(sizeGroup.Key, sizeGroup));
 
-            foreach (var sizeGroup in groupedBySize)
-            {
-                var sizeCategory = new CategoryData
-                {
-                    Name = sizeGroup.Key.ToString(),
-                    Icon = GetIconForSize(sizeGroup.Key),
-                    Parent = null
-                };
-
-                // Group by hull ID and faction
-                var groupedByModelAndFaction = sizeGroup.GroupBy(s =>
-                {
-                    string factionName = s.Model.Faction != null ? s.Model.Faction.Name : "NoFaction";
-                    return s.Model.Id.ToString() + "_" + factionName;
-                });
-
-                foreach (var modelGroup in groupedByModelAndFaction)
-                {
-                    if (modelGroup.Count() == 1)
-                    {
-                        sizeCategory.Ships.Add(modelGroup.First());
-                    }
-                    else
-                    {
-                        var firstShip = modelGroup.First();
-
-                        Sprite shipIcon = _resourceLocator.GetSprite(firstShip.Model.IconImage);
-                        if (shipIcon == null)
-                        {
-                            shipIcon = _resourceLocator.GetSprite(firstShip.Model.ModelImage);
-                        }
-
-                        string shipName = _localization.Localize(firstShip.Model.OriginalName);
-                        string factionText = "";
-                        if (firstShip.Model.Faction != null)
-                        {
-                            string factionLocalized = _localization.Localize(firstShip.Model.Faction.Name);
-                            factionText = $" [{factionLocalized}]";
-                        }
-
-                        var subCategory = new CategoryData
-                        {
-                            Name = shipName + factionText,
-                            Icon = shipIcon,
-                            Parent = sizeCategory,
-                            Ships = modelGroup.ToList()
-                        };
-                        sizeCategory.SubCategories.Add(subCategory);
-                    }
-                }
-
-                _rootCategories.Add(sizeCategory);
-            }
-
-            // Reset search state
             _activeCategory = null;
-            _searchQuery = "";
-
-            if (_searchInput != null) _searchInput.text = "";
+            _searchQuery = string.Empty;
+            if (_searchInput != null)
+                _searchInput.text = string.Empty;
 
             RebuildDisplayList();
-        }
-
-        private Sprite GetIconForSize(SizeClass sizeClass)
-        {
-            if (_categoryIcons == null || _categoryIcons.Count == 0) return null;
-            var match = _categoryIcons.FirstOrDefault(i => i.SizeClass == sizeClass);
-            return match.Icon;
         }
 
         public void OpenCategory(CategoryData category)
         {
             _activeCategory = category;
-            RebuildDisplayList();
-            OnListChanged?.Invoke();
+            NotifyListChanged();
         }
 
         public void GoBack()
@@ -125,109 +70,181 @@ namespace ShipEditor.UI
             if (_activeCategory != null)
                 _activeCategory = _activeCategory.Parent;
 
-            RebuildDisplayList();
-            OnListChanged?.Invoke();
+            NotifyListChanged();
         }
 
         public void ExecuteSearch()
         {
-            if (_searchInput != null)
+            if (_searchInput == null)
+                return;
+
+            var query = _searchInput.text == null ? string.Empty : _searchInput.text.Trim();
+            if (query == _searchQuery)
+                return;
+
+            _searchQuery = query;
+            NotifyListChanged();
+        }
+
+        public int GetItemCount() => _displayItems.Count;
+
+        public int GetItemType(int index) => _displayItems[index].IsCategory ? CategoryItemType : ShipItemType;
+
+        public GameObject GetListItem(int index, int itemType, GameObject obj)
+        {
+            var itemData = _displayItems[index];
+
+            if (itemType == CategoryItemType)
             {
-                _searchQuery = _searchInput.text != null ? _searchInput.text.ToLower() : "";
+                if (obj == null)
+                    obj = Instantiate(_groupPrefab.gameObject);
 
-                // Reset navigation for global search
-                if (!string.IsNullOrEmpty(_searchQuery))
-                    _activeCategory = null;
-
-                RebuildDisplayList();
-                OnListChanged?.Invoke();
+                obj.GetComponent<ShipGroupListItem>().Initialize(itemData.Category, this, itemData.IsBackButton);
+                obj.SetActive(true);
+                return obj;
             }
+
+            if (obj == null)
+                obj = Instantiate(_itemPrefab.gameObject);
+
+            obj.GetComponent<ShipItem>().Initialize(itemData.Ship, _resourceLocator, _localization, _database);
+            obj.SetActive(true);
+            return obj;
+        }
+
+        private CategoryData CreateSizeCategory(SizeClass sizeClass, IEnumerable<IShip> ships)
+        {
+            var category = new CategoryData { Name = sizeClass.ToString(), Icon = GetIconForSize(sizeClass) };
+
+            foreach (var group in ships.GroupBy(GetGroupKey))
+            {
+                var members = group.ToList();
+                if (members.Count == 1)
+                    category.Ships.Add(members[0]);
+                else
+                    category.AddSubCategory(CreateModelCategory(members));
+            }
+
+            return category;
+        }
+
+        private CategoryData CreateModelCategory(List<IShip> members)
+        {
+            var model = members[0].Model;
+
+            var icon = _resourceLocator.GetSprite(model.IconImage);
+            if (icon == null)
+                icon = _resourceLocator.GetSprite(model.ModelImage);
+
+            var factionText = model.Faction != null ? $" [{_localization.Localize(model.Faction.Name)}]" : string.Empty;
+
+            return new CategoryData
+            {
+                Name = _localization.Localize(model.OriginalName) + factionText,
+                Icon = icon,
+                Ships = members
+            };
+        }
+
+        private static string GetGroupKey(IShip ship)
+        {
+            var faction = ship.Model.Faction;
+            return ship.Model.Id + "|" + (faction != null ? "f:" + faction.Name : "-");
+        }
+
+        private Sprite GetIconForSize(SizeClass sizeClass)
+        {
+            foreach (var entry in _categoryIcons)
+            {
+                if (entry.SizeClass == sizeClass)
+                    return entry.Icon;
+            }
+
+            return null;
+        }
+
+        private void NotifyListChanged()
+        {
+            RebuildDisplayList();
+            OnListChanged?.Invoke();
         }
 
         private void RebuildDisplayList()
         {
             _displayItems.Clear();
 
-            if (!string.IsNullOrEmpty(_searchQuery))
-            {
-                // Search Mode
-                foreach (var rootCat in _rootCategories)
-                {
-                    foreach (var ship in rootCat.Ships)
-                        CheckAndAddShipToSearch(ship);
+            if (_searchQuery.Length > 0)
+                AddSearchResults();
+            else
+                AddNavigationEntries();
+        }
 
-                    foreach (var subCat in rootCat.SubCategories)
-                    {
-                        foreach (var ship in subCat.Ships)
-                            CheckAndAddShipToSearch(ship);
-                    }
-                }
+        private void AddSearchResults()
+        {
+            _searchPool.Clear();
+            foreach (var root in _rootCategories)
+                root.CollectShips(_searchPool);
+
+            foreach (var ship in _searchPool)
+            {
+                if (MatchesSearch(ship))
+                    _displayItems.Add(new DisplayItem { Ship = ship });
+            }
+
+            _searchPool.Clear();
+        }
+
+        private void AddNavigationEntries()
+        {
+            if (_activeCategory == null)
+            {
+                foreach (var category in _rootCategories)
+                    _displayItems.Add(new DisplayItem { Category = category });
                 return;
             }
 
-            // Navigation Mode
-            if (_activeCategory == null)
-            {
-                foreach (var cat in _rootCategories)
-                    _displayItems.Add(new DisplayItem { IsCategory = true, IsBackButton = false, Category = cat });
-            }
-            else
-            {
-                _displayItems.Add(new DisplayItem { IsCategory = true, IsBackButton = true, Category = _activeCategory });
+            _displayItems.Add(new DisplayItem { Category = _activeCategory, IsBackButton = true });
 
-                foreach (var subCat in _activeCategory.SubCategories)
-                    _displayItems.Add(new DisplayItem { IsCategory = true, IsBackButton = false, Category = subCat });
+            foreach (var sub in _activeCategory.SubCategories)
+                _displayItems.Add(new DisplayItem { Category = sub });
 
-                foreach (var ship in _activeCategory.Ships)
-                    _displayItems.Add(new DisplayItem { IsCategory = false, IsBackButton = false, Ship = ship });
-            }
+            foreach (var ship in _activeCategory.Ships)
+                _displayItems.Add(new DisplayItem { Ship = ship });
         }
 
-        private void CheckAndAddShipToSearch(IShip ship)
+        private bool MatchesSearch(IShip ship)
         {
-            // Filter by name and faction
-            string shipName = _localization.Localize(ship.Model.OriginalName).ToLower();
-
-            string factionName = "";
-            if (ship.Model.Faction != null)
-            {
-                factionName = _localization.Localize(ship.Model.Faction.Name).ToLower();
-            }
-
-            if (shipName.Contains(_searchQuery) || factionName.Contains(_searchQuery))
-            {
-                _displayItems.Add(new DisplayItem { IsCategory = false, IsBackButton = false, Ship = ship });
-            }
+            return GetSearchText(ship).IndexOf(_searchQuery, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
-        public int GetItemCount() => _displayItems.Count;
-        public int GetItemType(int index) => _displayItems[index].IsCategory ? 1 : 0;
-
-        public GameObject GetListItem(int index, int itemType, GameObject obj)
+        private string GetSearchText(IShip ship)
         {
-            var itemData = _displayItems[index];
+            string text;
+            if (_searchText.TryGetValue(ship, out text))
+                return text;
 
-            if (itemType == 1)
-            {
-                if (obj == null) obj = Instantiate(_groupPrefab.gameObject);
-                var groupItem = obj.GetComponent<ShipGroupListItem>();
-                groupItem.Initialize(itemData.Category, this, itemData.IsBackButton);
-                groupItem.gameObject.SetActive(true);
-                return obj;
-            }
-            else
-            {
-                if (obj == null) obj = Instantiate(_itemPrefab.gameObject);
-                var shipItem = obj.GetComponent<ShipItem>();
-                shipItem.Initialize(itemData.Ship, _resourceLocator, _localization, _database);
-                shipItem.gameObject.SetActive(true);
-                return obj;
-            }
+            var faction = ship.Model.Faction;
+            text = _localization.Localize(ship.Model.OriginalName) + "\n" +
+                   (faction != null ? _localization.Localize(faction.Name) : string.Empty);
+
+            _searchText[ship] = text;
+            return text;
         }
     }
 
-    [System.Serializable]
-    public struct CategoryIcon { public SizeClass SizeClass; public Sprite Icon; }
-    public class CategoryData { public string Name; public Sprite Icon; public CategoryData Parent; public List<CategoryData> SubCategories = new List<CategoryData>(); public List<IShip> Ships = new List<IShip>(); }
-    public struct DisplayItem { public bool IsCategory; public bool IsBackButton; public CategoryData Category; public IShip Ship; }
+    [Serializable]
+    public struct CategoryIcon
+    {
+        public SizeClass SizeClass;
+        public Sprite Icon;
+    }
+
+    public struct DisplayItem
+    {
+        public bool IsBackButton;
+        public CategoryData Category;
+        public IShip Ship;
+
+        public bool IsCategory => Category != null;
+    }
 }

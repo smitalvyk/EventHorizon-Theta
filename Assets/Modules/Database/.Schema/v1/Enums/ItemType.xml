@@ -55,5 +55,6 @@
 	<item name="CellSettings" value="119" />
 	<item name="CustomCategorySettings" value="120" />
 	<item name="EconomySettings" value="121" />
-	
+	<item name="ItemCategorySettings" value="122" />
+
 </data>

@@ -130,4 +130,6 @@
     <string name="Requirements">Требования:</string>
     <string name="ShipTypeMechanical">Мех. корабли</string>
     <string name="ShipTypeOrganic">Орг. корабли</string>
+
+    <string name="Category_Other">Прочее</string>
 </resources>

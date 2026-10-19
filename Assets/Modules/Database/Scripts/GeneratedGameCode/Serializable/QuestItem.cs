@@ -20,5 +20,6 @@ namespace GameDatabase.Serializable
 		public string Icon;
 		public string Color;
 		public int Price;
+		public int InventoryCategory = 0;
 	}
 }

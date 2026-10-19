@@ -63,5 +63,6 @@ namespace GameDatabase.Enums
 		CellSettings = 119,
 		CustomCategorySettings = 120,
 		EconomySettings = 121,
+		ItemCategorySettings = 122,
 	}
 }

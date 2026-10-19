@@ -25,6 +25,7 @@ namespace GameDatabase
 		ExplorationSettings ExplorationSettings { get; }
 		FactionsSettings FactionsSettings { get; }
 		GalaxySettings GalaxySettings { get; }
+		ItemCategorySettings ItemCategorySettings { get; }
 		LocalizationSettings LocalizationSettings { get; }
 		MusicPlaylist MusicPlaylist { get; }
 		ShipModSettings ShipModSettings { get; }
@@ -109,6 +110,7 @@ namespace GameDatabase
 		public ExplorationSettings ExplorationSettings { get; private set; }
 		public FactionsSettings FactionsSettings { get; private set; }
 		public GalaxySettings GalaxySettings { get; private set; }
+		public ItemCategorySettings ItemCategorySettings { get; private set; }
 		public LocalizationSettings LocalizationSettings { get; private set; }
 		public MusicPlaylist MusicPlaylist { get; private set; }
 		public ShipModSettings ShipModSettings { get; private set; }
@@ -217,6 +219,7 @@ namespace GameDatabase
 			ExplorationSettings = null;
 			FactionsSettings = null;
 			GalaxySettings = null;
+			ItemCategorySettings = null;
 			LocalizationSettings = null;
 			MusicPlaylist = null;
 			ShipModSettings = null;
@@ -391,6 +394,8 @@ namespace GameDatabase
 					_database.FactionsSettings = FactionsSettings.Create(_content.FactionsSettings ?? new Serializable.FactionsSettingsSerializable { ItemType = Enums.ItemType.FactionsSettings }, this);
 				if (_database.GalaxySettings == null)
 					_database.GalaxySettings = GalaxySettings.Create(_content.GalaxySettings ?? new Serializable.GalaxySettingsSerializable { ItemType = Enums.ItemType.GalaxySettings }, this);
+				if (_database.ItemCategorySettings == null)
+					_database.ItemCategorySettings = ItemCategorySettings.Create(_content.ItemCategorySettings ?? new Serializable.ItemCategorySettingsSerializable { ItemType = Enums.ItemType.ItemCategorySettings }, this);
 				if (_database.LocalizationSettings == null)
 					_database.LocalizationSettings = LocalizationSettings.Create(_content.LocalizationSettings ?? new Serializable.LocalizationSettingsSerializable { ItemType = Enums.ItemType.LocalizationSettings }, this);
 				if (_database.MusicPlaylist == null)

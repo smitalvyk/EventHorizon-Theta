@@ -32,6 +32,7 @@ namespace GameDatabase.DataModel
 			Icon = new SpriteId(serializable.Icon, SpriteId.Type.ArtifactIcon);
 			Color = new ColorData(serializable.Color);
 			Price = UnityEngine.Mathf.Clamp(serializable.Price, 0, 999999999);
+			InventoryCategory = UnityEngine.Mathf.Clamp(serializable.InventoryCategory, 0, 9999);
 
 			OnDataDeserialized(serializable, loader);
 		}
@@ -43,6 +44,7 @@ namespace GameDatabase.DataModel
 		public SpriteId Icon { get; private set; }
 		public ColorData Color { get; private set; }
 		public int Price { get; private set; }
+		public int InventoryCategory { get; private set; }
 
 		public static QuestItem DefaultValue { get; private set; }
 	}

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data name="CategoryTag" type="enum">
+    <item name="None" value="0" />
+    <item name="Weapon" value="1" />
+    <item name="Defend" value="2" />
+    <item name="Energy" value="3" />
+    <item name="Engine" value="4" />
+    <item name="Drone" value="5" />
+    <item name="Special" value="6" />
+    <item name="Satellite" value="7" />
+    <item name="Ship" value="8" />
+    <item name="Artifact" value="9" />
+    <item name="Fuel" value="10" />
+</data>

@@ -22,6 +22,27 @@ namespace Gui.StarMap
         [SerializeField] private HangarSlotInfo SlotInfoPanel;
         [SerializeField] private ToggleGroup HangarToggleGroup;
 
+        private ShipListItem _draggableShip;
+        private readonly List<HangarItem> _slots = new List<HangarItem>();
+
+        private void OnEnable()
+        {
+            if (ContentFiller != null)
+                ContentFiller.OnListChanged += OnContentListChanged;
+        }
+
+        private void OnDisable()
+        {
+            if (ContentFiller != null)
+                ContentFiller.OnListChanged -= OnContentListChanged;
+        }
+
+        // Re-render ship list when switching categories or navigating back
+        private void OnContentListChanged()
+        {
+            ShipList.RefreshContent();
+        }
+
         public void InitializeWindow(WindowArgs args)
         {
             UpdateSlots();
@@ -32,7 +53,6 @@ namespace Gui.StarMap
 
         public void OnBeginShipDrag(ShipListItem item)
         {
-            UnityEngine.Debug.Log("OnBeginDrag: " + item.Ship.Name);
             _draggableShip = item;
         }
 
@@ -49,8 +69,6 @@ namespace Gui.StarMap
 
         public void OnEndShipDrag(Vector2 position)
         {
-            UnityEngine.Debug.Log("OnEndDrag");
-
             var selectedSlotId = -1;
             var corners = new Vector3[4];
             for (var i = 0; i < Slots.Count; ++i)
@@ -164,7 +182,7 @@ namespace Gui.StarMap
                 ships.Remove(ship);
 
             var id = SelectedSlotId;
-            ContentFiller.InitializeShips(ships.OrderBy(ship => ship.Id.Value).Select(ship => 
+            ContentFiller.InitializeShips(ships.OrderBy(ship => ship.Id.Value).Select(ship =>
                 new KeyValuePair<IShip, bool>(ship, id < 0 || (!Slots[id].Locked && Slots[id].Size >= ship.Model.SizeClass))));
 
             ShipList.RefreshContent();
@@ -214,8 +232,5 @@ namespace Gui.StarMap
                 return Slots.IndexOf(slot.GetComponent<HangarItem>());
             }
         }
-
-        private ShipListItem _draggableShip;
-        private readonly List<HangarItem> _slots = new List<HangarItem>();
     }
 }
